@@ -56,13 +56,13 @@ class server {
 
  private:
   void do_accept() {
-    acceptor_.async_accept(
-        socket_, [this](const boost::system::error_code& error) {
-          // 清理
-          if (!error) std::make_shared<session>(std::move(socket_))->start();
-        });
-    do_accept();
+    acceptor_.async_accept(socket_, [this](auto& e) {
+      // 清理
+      if (!e) std::make_shared<session>(std::move(socket_))->start();
+      do_accept();
+    });
   }
+
   tcp::acceptor acceptor_;
   tcp::socket socket_;
 };
