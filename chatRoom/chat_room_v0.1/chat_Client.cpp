@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-28 10:03:15
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-28 16:22:17
+ * @Last Modified time: 2020-03-28 16:32:08
  * @Description: chat client
  */
 
@@ -136,6 +136,9 @@ int main(int argc, char* argv[]) {
 
     c.close();
     t.join();
+
+    // 若置换顺序则子线程等待关闭，主线程等待子线
+    // 但是子线程的关闭要等待子线程返回，产生死锁
   } catch (std::exception& e) {
     std::cerr << "Exception: " << e.what() << std::endl;
   }
