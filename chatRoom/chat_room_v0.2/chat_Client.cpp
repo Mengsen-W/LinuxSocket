@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-28 10:03:15
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-28 16:32:08
+ * @Last Modified time: 2020-03-28 19:01:10
  * @Description: chat client
  */
 
@@ -76,9 +76,17 @@ class chat_client {
         [this](const boost::system::error_code& e, std::size_t /*length*/) {
           if (!e) {
             std::cout << "---- read body success ----" << std::endl;
-            std::cout.write(read_msg_.body(), read_msg_.body_length());
-            std::cout << "\n";
-            do_read_header();
+            if (read_msg_.body_length() == sizeof(RoomInfomation)) {
+              const RoomInfomation* info =
+                  reinterpret_cast<const RoomInfomation*>(read_msg_.body());
+              std::cout << "client: ";
+              std::cout.write(info->name.name, info->name.nameLen);
+              std::cout << " says: ";
+              std::cout.write(info->chat.information,
+                              sizeof(info->chat.information));
+              std::cout << "---- over the message ----" << std::endl;
+              do_read_header();
+            }
           } else {
             std::cout << "---- read body false ----" << std::endl;
             socket_.close();
@@ -127,11 +135,16 @@ int main(int argc, char* argv[]) {
     char line[chat_message::max_body_length + 1];
     while (std::cin.getline(line, chat_message::max_body_length + 1)) {
       chat_message msg;
-      msg.body_length(std::strlen(line));
-      std::memcpy(msg.body(), line, msg.body_length());
-      msg.encode_header();
-      std::cout << "----write----" << std::endl;
-      c.write(msg);
+      int type = 0;
+      std::string input(line, line + std::strlen(line));
+      std::string output;
+      std::cout << sizeof(line) << std::endl;
+      if (parseMessage(input, &type, output)) {
+        msg.setMessage(type, output.data(), output.size());
+        std::cout << output.size() << std::endl;
+        c.write(msg);
+        std::cout << "----write----" << std::endl;
+      }
     }
 
     c.close();

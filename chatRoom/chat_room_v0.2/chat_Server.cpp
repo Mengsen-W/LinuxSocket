@@ -2,12 +2,12 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-27 21:40:36
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-28 16:47:09
+ * @Last Modified time: 2020-03-28 19:31:42
  * @Description: chat server
  */
 
 /*
- * chat_participant: 虚基类
+//  * chat_participant: 虚基类
  * chat_room: 控制交流队列和房间的出入
  * chat_session: 读写数据
  * chat_server: 监听分发socket
@@ -90,13 +90,31 @@ class chat_session : public std::enable_shared_from_this<chat_session> {
                      std::size_t length) {
           if (!error) {
             std::cout << "---- do_read_body ----" << std::endl;
-            room_.deliver(read_msg_);
+            // room_.deliver(read_msg_);
+            handleMessage();
             do_read_header();
           } else
             room_.leave(shared_from_this());
         });
   }
+  void handleMessage() {
+    if (read_msg_.type() == 1) {
+      const BindName* bind =
+          reinterpret_cast<const BindName*>(read_msg_.body());
+      m_name.assign(bind->name, bind->name + bind->nameLen);
+    } else if (read_msg_.type() == 2) {
+      const ChatInfomation* chat =
+          reinterpret_cast<const ChatInfomation*>(read_msg_.body());
+      m_chatInfomation.assign(chat->information,
+                              chat->information + chat->inforLen);
 
+      auto rinfo = buildRoomInfo();
+      chat_message msg;
+      msg.setMessage(3, &rinfo, sizeof(rinfo));
+      room_.deliver(msg);
+    } else {
+    }
+  }
   void do_write() {
     auto self = shared_from_this();
     boost::asio::async_write(
@@ -121,6 +139,16 @@ class chat_session : public std::enable_shared_from_this<chat_session> {
   chat_room& room_;
   chat_message read_msg_;
   chat_message_queue write_msgs_;
+  std::string m_name;
+  std::string m_chatInfomation;
+  RoomInfomation buildRoomInfo() const {
+    RoomInfomation info;
+    info.name.nameLen = m_name.size();
+    std::memcpy(info.name.name, m_name.data(), m_name.size());
+    std::memcpy(info.chat.information, m_chatInfomation.data(),
+                m_chatInfomation.size());
+    return info;
+  }
 };
 
 void chat_room::join(chat_session_ptr participant) {
