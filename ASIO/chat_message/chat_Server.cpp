@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-27 21:40:36
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-28 10:03:42
+ * @Last Modified time: 2020-03-28 16:08:05
  * @Description: chat server
  */
 
@@ -16,6 +16,7 @@
 #include <boost/asio.hpp>
 #include <cstdlib>
 #include <deque>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -50,7 +51,7 @@ class chat_room {
   void deliver(const chat_message& msg) {
     recent_msgs_.push_back(msg);
     while (recent_msgs_.size() > max_recent_msgs) recent_msgs_.pop_front();
-
+    std::cout << "---- deliver of all ----" << std::endl;
     for (auto& participant : participants_) participant->deliver(msg);
   }
 
@@ -67,6 +68,7 @@ class chat_session : public std::enable_shared_from_this<chat_session>,
       : socket_(std::move(socket)), room_(room) {}
 
   void start() {
+    std::cout << "---- Start ----" << std::endl;
     room_.join(shared_from_this());
     do_read_header();
   }
@@ -77,7 +79,10 @@ class chat_session : public std::enable_shared_from_this<chat_session>,
     write_msgs_.push_back(msg);
     // just first come in this
     //! 防止重复调用
-    if (!write_in_progress) do_write();
+    if (!write_in_progress) {
+      std::cout << "---- write ----" << std::endl;
+      do_write();
+    }
   }
 
  private:
@@ -86,8 +91,9 @@ class chat_session : public std::enable_shared_from_this<chat_session>,
     boost::asio::async_read(
         socket_,
         boost::asio::buffer(read_msg_.data(), chat_message::header_length),
-        [this, self](boost::system::error_code& e, std::size_t length) {
+        [this, self](const boost::system::error_code& e, std::size_t length) {
           if (!e && read_msg_.decode_header()) {
+            std::cout << "---- do_read_header ----" << std::endl;
             do_read_body();
           } else {
             room_.leave(shared_from_this());
@@ -99,8 +105,10 @@ class chat_session : public std::enable_shared_from_this<chat_session>,
     auto self = shared_from_this();
     boost::asio::async_read(
         socket_, boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
-        [this, self](boost::system::error_code& error, std::size_t length) {
+        [this, self](const boost::system::error_code& error,
+                     std::size_t length) {
           if (!error) {
+            std::cout << "---- do_read_body ----" << std::endl;
             room_.deliver(read_msg_);
             do_read_header();
           } else
@@ -114,10 +122,16 @@ class chat_session : public std::enable_shared_from_this<chat_session>,
         socket_,
         boost::asio::buffer(write_msgs_.front().data(),
                             write_msgs_.front().length()),
-        [this, self](boost::system::error_code& error, std::size_t* length) {
+        [this, self](const boost::system::error_code& error,
+                     std::size_t length) {
+          std::cout << "---- do_write ----" << error << std::endl;
           if (!error) {
             write_msgs_.pop_front();
-            if (!write_msgs_.empty()) do_write();
+            if (!write_msgs_.empty()) {
+              std::cout << "---- write mgs empty ----" << error << std::endl;
+              do_write();
+            }
+
           } else
             room_.leave(shared_from_this());
         });
@@ -138,11 +152,12 @@ class chat_server {
 
  private:
   void do_accept() {
-    acceptor_.async_accept(socket_, [this](boost::system::error_code& error) {
-      if (!error)
-        std::make_shared<chat_session>(std::move(socket_), room_)->start();
-      do_accept();
-    });
+    acceptor_.async_accept(
+        socket_, [this](const boost::system::error_code& error) {
+          if (!error)
+            std::make_shared<chat_session>(std::move(socket_), room_)->start();
+          do_accept();
+        });
   }
 
   tcp::acceptor acceptor_;
@@ -169,4 +184,6 @@ int main(int argc, char* argv[]) {
   } catch (std::exception& e) {
     std::cerr << "Exception: " << e.what() << std::endl;
   }
+
+  return 0;
 }

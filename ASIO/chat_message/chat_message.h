@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-27 21:43:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-28 10:40:44
+ * @Last Modified time: 2020-03-28 15:53:11
  * @Description: struct of chat message
  */
 
@@ -41,10 +41,14 @@ class chat_message {
     char header[header_length + 1] = "";
     std::strncat(header, data_, header_length);
     body_length_ = std::atoi(header);
+
     if (body_length_ > max_body_length) {
       body_length_ = 0;
+      std::cout << "decode_header false ----" << std::endl;
       return false;
     }
+
+    std::cout << "decode_header success" << std::endl;
     return true;
   }
 
@@ -52,6 +56,7 @@ class chat_message {
     char header[header_length + 1] = "";
     std::sprintf(header, "%4d", static_cast<int>(body_length_));
     std::memcpy(data_, header, header_length);
+    std::cout << "encode_header success" << std::endl;
   }
 
  private:
