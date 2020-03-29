@@ -1,2 +1,0 @@
-sever: main.cpp structHeader.cpp chat_message.h structHeader.h
-	 g++ -std=c++17 -Og  -fsanitize=address -fno-omit-frame-pointer -Wall -g chat_Server.cpp -o chat_Server.out -lboost_system -lpthread -lboost_serialization
