@@ -223,6 +223,16 @@ class chat_server {
   chat_room room_;
 };
 
+static std::function<void()> safeQuit;
+
+static void signalHandler(int sig) {
+  BOOST_LOG_TRIVIAL(info) << "handle system signal" << sig;
+  if(safeQuit) {
+    safeQuit();
+    safeQuit = nullptr;
+  }
+}
+
 void init() {
   boost::log::add_file_log("sample.log");
   boost::log::core::get()->set_filter(boost::log::trivial::severity >=
@@ -246,6 +256,8 @@ int main(int argc, char* argv[]) {
     base = std::chrono::system_clock::now();
 
     boost::asio::io_service io_service;
+    safeQuit = [&io_service]{io_service.stop();};
+    signal(SIGINT, signalHandler);
     std::list<chat_server> servers;
     for (int i = 0; i < argc; ++i) {
       tcp::endpoint endpoint(tcp::v4(), std::atoi(argv[i]));
