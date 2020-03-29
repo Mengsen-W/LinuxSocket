@@ -2,10 +2,11 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-03-27 21:40:36
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-03-29 11:49:17
- * @Description: chat server by json and multithread and log
+ * @Last Modified time: 2020-03-29 21:57:58
+ * @Description: chat server by json and multithread and log and guard for wrap
  */
 
+//! 瓶颈在 deliver 那块太多IO操作，msg不传引用是因为 msg 是一个临时变量
 /*
  * chat_room: 控制交流队列和房间的出入
  * chat_session: 读写数据
