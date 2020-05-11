@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-10 18:38:54
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-10 21:37:34
+ * @Last Modified time: 2020-05-11 11:08:56
  * @Description: 单例类
  */
 
@@ -58,8 +58,15 @@ class Singleton {
   }
 
   static void destroy() {
+    // 这是一种不完全类型检测
+    // T如果不是不完全类型那么sizeof（T）
+    // 就应该是type_must_be_complete[-1],数组是不能为负数的，所以就会报错
     typedef char T_must_be_complete_type[sizeof(T) == 0 ? -1 : 1];
+
+    // 实际定义一个数组
+    //! warring T_must_be_complete_type’ locally defined but not used
     T_must_be_complete_type dummy;
+    //! warning: unused variable ‘dummy’
     (void)dummy;
 
     delete value_;
