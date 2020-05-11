@@ -16,6 +16,10 @@ struct has_no_destroy {
   static int32_t test(...);
   template <typename C>
   static char test(decltype(&C::no_destroy));
+  // 必须为static的原因是为了在类外直接访问
+  // 但是此时又要访问函数
+  // 函数也只能为 static
+
   // 这里可以算作传入了一个函数指针
   // 或者可以理解为一个成员变量指针
 
@@ -42,24 +46,65 @@ struct has_no_destroy {
   // 只有这样才能在最终确定类型并且不会出错
   const static bool value = sizeof(test<T>(0)) == 1;
 };
-// 其作用就是用来判断是否有 no_destroy 函数
+
+struct has_no_destroy_1 {
+  template <typename C>
+  static int32_t test(...);
+  template <typename C>
+  static char test(decltype(&C::no_destroy));
+};
+
+struct has_no_destroy_2 {
+  template <typename C>
+  int32_t test(...);
+  template <typename C>
+  char test(decltype(&C::no_destroy));
+  // const static bool value = sizeof(test(0)) == 1;
+};
 
 struct A {};
 
 struct B {
   void no_destroy() {}
 };
+
 struct C {
   int no_destroy;
 };
 
 struct D : B {};
 
+// void testNoDestroy() {
+//   printf("%d\n", has_no_destroy<A>::value);
+//   printf("%d\n", has_no_destroy<B>::value);
+//   printf("%d\n", has_no_destroy<C>::value);
+//   printf("%d\n", has_no_destroy<D>::value);
+// }
+
+//! error 未定义的引用
+// 因为我们不能实际的执行这个函数
+/* void testNoDestroy() {
+  printf("%d\n", has_no_destroy::test<A>(0));
+  printf("%d\n", has_no_destroy::test<B>(0));
+  printf("%d\n", has_no_destroy::test<C>(0));
+  printf("%d\n", has_no_destroy::test<D>(0));
+} */
+
+// 相比多写好多
+// void testNoDestroy() {
+//   printf("%d\n", sizeof(has_no_destroy_1::test<A>(0)) == 1);
+//   printf("%d\n", sizeof(has_no_destroy_1::test<B>(0)) == 1);
+//   printf("%d\n", sizeof(has_no_destroy_1::test<C>(0)) == 1);
+//   printf("%d\n", sizeof(has_no_destroy_1::test<D>(0)) == 1);
+// }
+
+// 在栈上面创建对象
 void testNoDestroy() {
-  printf("%d\n", has_no_destroy<A>::value);
-  printf("%d\n", has_no_destroy<B>::value);
-  printf("%d\n", has_no_destroy<C>::value);
-  printf("%d\n", has_no_destroy<D>::value);
+  has_no_destroy_2 hs;
+  printf("%d\n", sizeof(hs.test<A>(0)) == 1);
+  printf("%d\n", sizeof(hs.test<B>(0)) == 1);
+  printf("%d\n", sizeof(hs.test<C>(0)) == 1);
+  printf("%d\n", sizeof(hs.test<D>(0)) == 1);
 }
 
 void fun(double a, double b) {
@@ -71,7 +116,8 @@ void fun(int a, int b) {
   return;
 }
 int main() {
-  // testNoDestroy();
+  // std::cout << &B::no_destroy << std::endl;
+  testNoDestroy();
   /*   fun(1, 1);
     fun(1.1, 1);  // 二义性 */
   return 0;
