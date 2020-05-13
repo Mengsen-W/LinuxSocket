@@ -53,6 +53,7 @@ class Singleton {
     value_ = new T();  // 调用的实际上是T的构造函数
 
     if (!detail::has_no_destroy<T>::value) {
+      // 注册回调函数
       ::atexit(destroy);
     }
   }
