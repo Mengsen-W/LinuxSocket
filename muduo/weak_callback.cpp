@@ -6,6 +6,8 @@
  *
  */
 
+#include <unistd.h>
+
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -83,11 +85,13 @@ class StockFactory : public std::enable_shared_from_this<StockFactory> {
     std::weak_ptr<Stock>& temp_weak =
         (this->stocks)[key];  //查找map中是否含有该key对应的value.
 
-    temp_stock = temp_weak.lock();
+    temp_stock = temp_weak.lock();  // 提升
 
     // != true
     if (!temp_stock)  //如果temp_stock为nullptr那么插入数据到该value中.
     {
+      std::cout << "no key" << std::endl;
+      // 用 temp_stock 构造
       temp_stock.reset(
           new Stock{key},
           std::bind(
@@ -96,6 +100,7 @@ class StockFactory : public std::enable_shared_from_this<StockFactory> {
               std::weak_ptr<StockFactory>{this->shared_from_this()},
               std::placeholders::_1));
 
+      // weak_ptr operator= means copy but don't add reference number
       temp_weak = temp_stock;
     }
 
@@ -131,12 +136,13 @@ int main() {
   // case 1:
   std::shared_ptr<StockFactory> shared_factory{
       std::make_shared<StockFactory>()};
+  std::shared_ptr<Stock> temp_stock2{shared_factory->get("shihua")};
   {
     std::shared_ptr<Stock> temp_stock1{shared_factory->get("shihua")};
     std::cout << temp_stock1.use_count() << "-------------" << std::endl;
-    std::shared_ptr<Stock> temp_stock2{shared_factory->get("shihua")};
-    std::cout << temp_stock2.use_count() << "-------------" << std::endl;
   }
+  sleep(5);
+  std::cout << temp_stock2.use_count() << "-------------" << std::endl;
 
   std::cout << std::endl;
 
