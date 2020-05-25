@@ -18,6 +18,7 @@ void print_block(int n, char c) {
   std::unique_lock<std::mutex> lck(mtx);
   // dead lock
   // mtx.lock();
+  // if std::unique_lock<std::mutex> lock(mtx, defer); // do not dead lock
   for (int i = 0; i < n; ++i) {
     std::cout << c;
   }
