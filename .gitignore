@@ -3,3 +3,4 @@
 *.out
 *.log
 *.code-workspace
+build
