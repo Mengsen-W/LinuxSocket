@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-31 10:35:32
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 12:56:16
+ * @Last Modified time: 2020-05-31 18:39:33
  */
 
 #ifndef __MENGSEN_COROUTINE_H__
@@ -24,9 +24,17 @@ class coroutine {
   coroutine& operator=(const coroutine&);
   coroutine& operator=(coroutine&&);
 
-  co_status status() const { return _status; };
+  co_status get_status() const { return _status; };
+  void set_status(co_status status) { _status = status; }
+  ucontext_t& get_context() { return _ctx; }
   void save_stack(char*);
-  void mainfunc(uint32_t, uint32_t);
+  static void mainfunc(schedule_ptr*);
+  coroutine_func set_func(schedule_ptr, void*);
+  void* get_ud() const { return _ud; }
+  ptrdiff_t get_size() const { return _size; }
+  char* get_stack() const { return _stack; }
+  ptrdiff_t get_cap() const { return _cap; }
+  void set_cap(ptrdiff_t cap) { _cap = cap; }
 
  private:
   coroutine_func _func;

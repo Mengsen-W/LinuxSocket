@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-30 15:07:46
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-30 16:33:49
+ * @Last Modified time: 2020-05-31 17:58:09
  * @Description: for test ucontext
  */
 
@@ -75,8 +75,11 @@ void context_test() {
   std::cout << child.uc_stack.ss_sp << std::endl;
   // __argc in number of function parameter
   // in this case put on three parameter, respectively 1, "hello", "world"
+  // argv just pass pointer's type uint32_t
+  // but in 64 bit os pointer is uint32_t
   makecontext(&child, (void (*)())fun, 3, 1, "hello", "world");
 
+  // set current context to main and swap to child context
   swapcontext(&main, &child);
 
   std::cout << "back to main context" << std::endl;

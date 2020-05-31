@@ -3,13 +3,12 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-30 21:38:58
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 12:46:08
+ * @Last Modified time: 2020-05-31 18:42:51
  */
 
 #ifndef __MENGSEN_SCHEDULE_H__
 #define __MENGSEN_SCHEDULE_H__
 
-#define STACK_SIZE (1024 * 1024)
 #define DEFAULT_COROUTINE 16
 
 #include <ucontext.h>
@@ -34,8 +33,10 @@ class schedule : std::enable_shared_from_this<schedule> {
   int coroutine_create(coroutine_func, void*);
   void coroutine_resume(int);
   co_status coroutine_status(int);
-  inline int coroutine_running() const;
+  inline int coroutine_running() const { return _running; }
+  void set_running(int i) { _running = i; }
   void coroutine_yield();
+  coroutine_vec_ptr get_vec_ptr() const { return _co_ptr; }
 
  private:
   char _stack[STACK_SIZE];    // tunning time stack

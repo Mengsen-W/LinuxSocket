@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-31 10:48:26
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 12:40:02
+ * @Last Modified time: 2020-05-31 18:37:35
  */
 
 #ifndef __MENGSEN_TYPES_H__
@@ -14,6 +14,8 @@
 #include <vector>
 
 namespace mengsen_co {
+
+#define STACK_SIZE (1024 * 1024)
 
 class schedule;
 class coroutine;
