@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-31 10:35:32
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 18:39:33
+ * @Last Modified time: 2020-06-01 09:36:14
  */
 
 #ifndef __MENGSEN_COROUTINE_H__
@@ -29,7 +29,8 @@ class coroutine {
   ucontext_t& get_context() { return _ctx; }
   void save_stack(char*);
   static void mainfunc(schedule_ptr*);
-  coroutine_func set_func(schedule_ptr, void*);
+  // TODO non-implements
+  void set_func(schedule_ptr, void*);
   void* get_ud() const { return _ud; }
   ptrdiff_t get_size() const { return _size; }
   char* get_stack() const { return _stack; }

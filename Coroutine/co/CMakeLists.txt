@@ -39,7 +39,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -finline-limit=1000 -DNODEBUG")
 # source dir mean CMakeLists.txt dir
 # binary dir mean executed cmake dir
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
-set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 include_directories(${PROJECT_SOURCE_DIR})
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
@@ -52,3 +52,11 @@ set(SOURCE
 
 add_library(mengsen_co STATIC ${SOURCE})
 
+add_executable(co.out
+  main.cpp
+)
+
+target_link_libraries(co.out
+  PRIVATE
+    mengsen_co
+)

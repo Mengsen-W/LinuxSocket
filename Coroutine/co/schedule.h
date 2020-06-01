@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-30 21:38:58
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 18:42:51
+ * @Last Modified time: 2020-06-01 12:58:02
  */
 
 #ifndef __MENGSEN_SCHEDULE_H__
@@ -30,7 +30,7 @@ class schedule : std::enable_shared_from_this<schedule> {
   schedule& operator=(schedule&&);
 
   void coroutine_close();
-  int coroutine_create(coroutine_func, void*);
+  size_t coroutine_create(coroutine_func, void*);
   void coroutine_resume(int);
   co_status coroutine_status(int);
   inline int coroutine_running() const { return _running; }
@@ -39,10 +39,10 @@ class schedule : std::enable_shared_from_this<schedule> {
   coroutine_vec_ptr get_vec_ptr() const { return _co_ptr; }
 
  private:
-  char _stack[STACK_SIZE];    // tunning time stack
-  ucontext_t _main;           // main coroutine context
-  coroutine_vec_ptr _co_ptr;  // array for saved coroutine
-  int _running;               // running coroutine id
+  char _stack[STACK_SIZE];  // tunning time stack
+  ucontext_t _main;         // main coroutine context
+  coroutine_vec _co_ptr;    // array for saved coroutine
+  int _running;             // running coroutine id
 };
 
 }  // namespace mengsen_co

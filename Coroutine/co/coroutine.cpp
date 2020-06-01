@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-31 11:26:39
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 19:54:34
+ * @Last Modified time: 2020-06-01 12:48:12
  */
 
 #include "coroutine.h"
@@ -25,6 +25,7 @@ coroutine::coroutine(schedule_ptr s, coroutine_func func, void *ud)
 
 coroutine::~coroutine() {
   // TODO 更改为智能指针
+  _sch.reset();
   free(_stack);
 }
 
@@ -51,5 +52,7 @@ void coroutine::save_stack(char *top) {
   _size = top - &dummy;
   memcpy(_stack, &dummy, _size);
 }
+
+void coroutine::set_func(schedule_ptr ptr, void *ud) { _func(ptr, ud); }
 
 }  // namespace mengsen_co

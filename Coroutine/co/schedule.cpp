@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-30 21:41:30
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-31 19:52:53
+ * @Last Modified time: 2020-06-01 12:55:57
  */
 
 #include <coroutine.h>
@@ -13,14 +13,26 @@
 
 namespace mengsen_co {
 schedule::schedule()
-    : _co_ptr(std::make_shared<coroutine_vec>(16, nullptr)), _running(-1) {}
+    : _stack(), _co_ptr(std::make_shared<coroutine_vec>()), _running(-1) {
+  memset(_stack, 0, STACK_SIZE);
+}
 
-schedule::~schedule() { _co_ptr->clear(); }
+schedule::~schedule() {
+  std::vector<coroutine_ptr>::const_iterator iter;
+  _co_ptr->clear();
+}
 
-int schedule::coroutine_create(coroutine_func func, void* ud) {
+/**
+ * create coroutine in schedule
+ * @param: coroutine_func func, void *ud [ argv[] ]
+ * @return: size_t
+ */
+size_t schedule::coroutine_create(coroutine_func func, void* ud) {
   coroutine_ptr co = std::make_shared<coroutine>(shared_from_this(), func, ud);
-  _co_ptr->push_back(co);
-  return static_cast<int>(_co_ptr->size());
+  //_co_ptr->emplace_back(
+  //     std::make_shared<coroutine>(shared_from_this(), func, ud));
+  // return _co_ptr->size();
+  return 0;
 }
 
 /**
@@ -30,7 +42,7 @@ int schedule::coroutine_create(coroutine_func func, void* ud) {
  */
 void schedule::coroutine_resume(int id) {
   assert(_running == -1);
-  assert(id >= 0 && id < static_cast<int>(_co_ptr->capacity()));
+  assert(id >= 0 && id <= static_cast<int>(_co_ptr->size()));
   coroutine_ptr c = _co_ptr->at(id);
   if (c == nullptr) return;
 
