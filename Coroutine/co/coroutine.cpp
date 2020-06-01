@@ -14,6 +14,15 @@
 
 namespace mengsen_co {
 
+coroutine::coroutine()
+    : _func(nullptr),
+      _ud(nullptr),
+      _sch(nullptr),
+      _cap(0),
+      _size(0),
+      _status(co_status::READY),
+      _stack(nullptr) {}
+
 coroutine::coroutine(schedule_ptr s, coroutine_func func, void *ud)
     : _func(func),
       _ud(ud),

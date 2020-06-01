@@ -20,7 +20,7 @@ namespace mengsen_co {
  * 计划设计一个协程控制器
  * 控制器提供控制协程切换和管理协程的功能
  */
-class schedule : std::enable_shared_from_this<schedule> {
+class schedule : public std::enable_shared_from_this<schedule> {
  public:
   schedule();
   ~schedule();
@@ -39,10 +39,10 @@ class schedule : std::enable_shared_from_this<schedule> {
   coroutine_vec_ptr get_vec_ptr() const { return _co_ptr; }
 
  private:
-  char _stack[STACK_SIZE];  // tunning time stack
-  ucontext_t _main;         // main coroutine context
-  coroutine_vec _co_ptr;    // array for saved coroutine
-  int _running;             // running coroutine id
+  char _stack[STACK_SIZE];    // tunning time stack
+  ucontext_t _main;           // main coroutine context
+  coroutine_vec_ptr _co_ptr;  // array for saved coroutine
+  int _running;               // running coroutine id
 };
 
 }  // namespace mengsen_co

@@ -17,7 +17,8 @@ namespace mengsen_co {
 
 class coroutine {
  public:
-  explicit coroutine(schedule_ptr, coroutine_func, void*);
+  coroutine();
+  coroutine(schedule_ptr, coroutine_func, void*);
   ~coroutine();
   coroutine(const coroutine&);
   coroutine(coroutine&&);
