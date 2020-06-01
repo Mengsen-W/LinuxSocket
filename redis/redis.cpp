@@ -1,8 +1,8 @@
 /*
  * @Author: Mengsen.Wang
- * @Date: 2020-05-29 21:55:46
+ * @Date: 2020-06-01 21:40:35
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-29 22:45:03
+ * @Last Modified time: 2020-06-01 22:23:51
  */
 
 #include <hiredis/hiredis.h>
@@ -11,34 +11,31 @@
 
 int main() {
   redisContext *context = redisConnect("localhost", 6379);
-  /* { */
-    std::cout << "errno = " << context->err << " errstr = " << context->errstr
-              << std::endl;
-  /*   redisReply *reply = */
-  /*       static_cast<redisReply *>(redisCommand(context, "set name wms")); */
+  redisReply *reply = nullptr;
 
-  /*   std::cout << "reply type = " << reply->type */
-  /*             << " reply interger = " << reply->integer */
-  /*             << " reply str = " << reply->str << std::endl; */
+  reply = static_cast<redisReply *>(redisCommand(context, "flushall"));
+  std::cout << "replay_type = " << reply->type
+            << " reply interger = " << reply->integer
+            << " reply len =  " << reply->len << " reply str = " << reply->str
+            << " reply size =  " << reply->element << std::endl;
+  freeReplyObject(reply);
 
-  /*   freeReplyObject(reply); */
-  /* } */
+  reply =
+      static_cast<redisReply *>(redisCommand(context, "lpush mylist w m s"));
 
-  /* { */
-  /*   redisReply *reply = nullptr; */
-  /*   redisAppendCommand(context, "set key1 value"); */
-  /*   redisAppendCommand(context, "get key2"); */
-  /*   redisGetReply(context, reinterpret_cast<void **>(&reply));  // reply for set */
-  /*   std::cout << "reply type = " << reply->type */
-  /*             << " reply interger = " << reply->integer */
-  /*             << " reply str = " << reply->str << std::endl; */
-  /*   freeReplyObject(reply); */
-  /*   redisGetReply(context, reinterpret_cast<void **>(&reply));  // reply for get */
-  /*   std::cout << "reply type = " << reply->type */
-  /*             << " reply interger = " << reply->integer */
-  /*             << " reply str = " << reply->str << std::endl; */
-  /*   freeReplyObject(reply); */
-  /* } */
+  std::cout << "replay_type = " << reply->type
+            << " reply interger = " << reply->integer << std::endl;
+  freeReplyObject(reply);
+
+  reply =
+      static_cast<redisReply *>(redisCommand(context, "lrange mylist 0 -1"));
+  std::cout << "replay_type = " << reply->type
+            << " reply size = " << reply->elements << std::endl;
+  for (int i = 0; i < reply->elements; ++i) {
+    std::cout << ((reply->element)[i])->str << std::endl;
+  }
+  freeReplyObject(reply);
+
   redisFree(context);
   return 0;
 }
