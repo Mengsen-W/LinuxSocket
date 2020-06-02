@@ -22,3 +22,4 @@
      1. 将管道内的缓存写入redis
      2. 并返回由redis返回的第一个 reply
 7. void freeReplyObject(void \*reply);
+     1. 用以释放redis返回的信息的结构

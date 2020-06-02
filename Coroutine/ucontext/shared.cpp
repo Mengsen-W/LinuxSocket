@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+
 class A;
 
 class B {
@@ -8,17 +9,21 @@ class B {
   B() : _ptr(nullptr) {}
   B(std::shared_ptr<A> ptr) : _ptr(ptr) {}
   void test() { std::cout << "B test" << std::endl; }
-  void set(std::shared_ptr<A> ptr) { swap(ptr, _ptr); }
 
  private:
   std::shared_ptr<A> _ptr;
 };
 
-class A : public std::enable_shared_from_this<A> {
+class A : std::enable_shared_from_this<A> {
  public:
   void creat() {
-    vec_ptr->emplace_back(std::make_shared<B>(shared_from_this()));
+    vec_ptr = std::make_shared<std::vector<std::shared_ptr<B>>>();
+    std::shared_ptr<B> ptr = std::make_shared<B>(shared_from_this());
+    ptr->test();
+    vec_ptr->emplace_back(ptr);
     vec_ptr->at(0)->test();
+    // vec_ptr->emplace_back(std::make_shared<B>(shared_from_this()));
+    // vec_ptr->at(0)->test();
   }
   void test() { std::cout << "A test" << std::endl; }
 
