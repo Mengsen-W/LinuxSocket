@@ -14,6 +14,9 @@
 #include <iostream>
 #include <string>
 
+/**
+ * 考虑封装hiredis接口
+ */
 class redis {
  public:
   redis() : _connect(nullptr), _reply(nullptr) {}
@@ -27,11 +30,15 @@ class redis {
     _connect = redisConnect(host.c_str(), port);
 
     if (_connect != nullptr && _connect->err) {
-      // err == 0 when there no err
+      // when err == 0 mean no err
       std::cout << "connect error = " << _connect->errstr << std::endl;
-      return 0;
+      return false;
     }
-    return 1;
+    return true;
+  }
+
+  void set(std::string key, std::string value) {
+    redisCommand(_connect, "SET %s %s", key.c_str(), value.c_str());
   }
 
   std::string get(std::string key) {
@@ -40,10 +47,6 @@ class redis {
     std::string str = _reply->str;
     freeReplyObject(_reply);
     return str;
-  }
-
-  void set(std::string key, std::string value) {
-    redisCommand(_connect, "SET %s %s", key.c_str(), value.c_str());
   }
 
  private:
