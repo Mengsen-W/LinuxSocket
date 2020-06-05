@@ -4,3 +4,4 @@
 *.log
 *.code-workspace
 build
+*test*
