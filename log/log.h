@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-04 21:38:59
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-06 18:41:59
+ * @Last Modified time: 2020-06-06 19:18:24
  */
 
 #include <cstdint>
@@ -75,6 +75,9 @@ class LogLine {
     return *this;
   }
 
+  /**
+   * @brief: no '\0'
+   */
   struct string_literal_t {
     explicit string_literal_t(const char *s) : _s(s) {}
     const char *_s;

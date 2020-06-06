@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-06 18:51:30
+ * @Last Modified time: 2020-06-06 19:27:05
  */
 
 #include "log.h"
@@ -117,6 +117,30 @@ const char* to_string(LogLevel loglevel) {
 }
 
 /**
+ * @brief: constructor for LogLine
+ * all of parameter automatic input of macro definition
+ * @param: [in] LogLevel loglevel
+ * @param: [in] const char *file
+ * @param: [in] const char *function
+ * @param: [in] uint32_t line
+ */
+LogLine::LogLine(LogLevel loglevel, const char* file, const char* function,
+                 uint32_t line)
+    : _bytes_used(0), _buffer_size(sizeof(_stack_buffer)) {
+  encode<uint64_t>(timestamp_now());
+  encode<std::thread::id>(this_thread_id());
+  encode<string_literal_t>(string_literal_t(file));
+  encode<string_literal_t>(string_literal_t(function));
+  encode<uint32_t>(line);
+  encode<LogLevel>(loglevel);
+}
+
+/**
+ * @brief: default destructor for LogLine
+ */
+LogLine::~LogLine() = default;
+
+/**
  * @brief: encode arg to buffer
  * @param:[in] typename Arg arg
  * @return: void
@@ -138,6 +162,55 @@ void LogLine::encode(Arg arg, uint8_t type_id) {
   resize_buffer_if_needed(sizeof(Arg) + sizeof(uint8_t));
   encode<uint8_t>(typeid);
   encode<Arg>(arg);
+}
+
+/**
+ * @brief:
+ */
+void LogLine::stringify(std::ostream& os) {
+  // get space pointer
+  char* b = !_heap_buffer ? _stack_buffer : _heap_buffer.get();
+  // temp variable for stringify() double parameter version
+  const char* const end = b + _bytes_used;
+  // get time stamp
+  uint64_t timestamp = *(reinterpret_cast<uint64_t*>(b));
+  // pass pointer time stamp
+  b += sizeof(uint64_t);
+  // get thread id
+  std::thread::id threadid = *(reinterpret_cast<std::thread::id*>(b));
+  // pass pointer thread id
+  b += sizeof(std::thread::id);
+  // get file name
+  string_literal_t file = *(reinterpret_cast<string_literal_t*>(b));
+  // pass pointer file name
+  b += sizeof(string_literal_t);
+  // get function name
+  string_literal_t function = *(reinterpret_cast<string_literal_t*>(b));
+  // pass pointer function name
+  b += sizeof(string_literal_t);
+  // get line number
+  uint32_t line = *reinterpret_cast<uint32_t*>(b);
+  // pass pointer line number
+  b += sizeof(uint32_t);
+  // get log level
+  LogLevel loglevel = *reinterpret_cast<LogLevel*>(b);
+  // pass pointer log level
+  b += sizeof(LogLevel);
+
+  // format timestamp
+  format_timestamp(os, timestamp);
+
+  // timestamp[loglevel][threadid][filename:functionname:line]
+  os << '[' << to_string(loglevel) << ']' << '[' << threadid << ']' << '['
+     << file._s << ':' << function._s << ':' << line << "] ";
+
+  stringify(os, b, end);
+
+  if (loglevel >= LogLevel::CRIT) {
+    // Emergency log immediately output
+    os.flush();
+  }
+  return;
 }
 
 }  // namespace mengsen_log
