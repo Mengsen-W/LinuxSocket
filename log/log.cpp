@@ -171,6 +171,7 @@ void LogLine::stringify(std::ostream& os) {
   // get space pointer
   char* b = !_heap_buffer ? _stack_buffer : _heap_buffer.get();
   // temp variable for stringify() double parameter version
+  // or shuold be able to pass const reference
   const char* const end = b + _bytes_used;
   // get time stamp
   uint64_t timestamp = *(reinterpret_cast<uint64_t*>(b));
