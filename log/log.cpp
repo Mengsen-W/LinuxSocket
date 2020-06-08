@@ -7,6 +7,7 @@
 
 #include "log.h"
 
+#include <atomic>   //for atomic and atomic_flag
 #include <chrono>   // for time stamp
 #include <cstring>  // for memcpy() strlen()
 #include <thread>   // for thread
@@ -352,5 +353,59 @@ LogLine& LogLine::operator<<(char arg) {
   encode<char>(arg, TupleIndex<char, SupportedTypes>::value);
   return *this;
 }
+
+struct BufferBase {
+  virtual ~BufferBase() = default;
+  virtual void push(LogLine&& logline) = 0;
+  virtual bool try_pop(LogLine& logline) = 0;
+};
+
+struct SpinLock {
+  SpinLock(std::atomic_flag& flag) : _flag(flag) {
+    while (_flag.test_and_set(std::memory_order_acquire))
+      ;
+  }
+  ~SpinLock() { _flag.clear(std::memory_order_release); }
+
+ private:
+  std::atomic_flag& _flag;
+};
+
+/**
+ * @brief Multi Producer Single Consumer Ring Buffer
+ */
+// TODO
+class RingBuffer : public BufferBase {
+ public:
+  struct alignas(64) Item {
+    Item()
+        : flag(ATOMIC_FLAG_INIT),
+          written(0),
+          logline(LogLevel::INFO, nullptr, nullptr, 0) {}
+    std::atomic_flag flag;
+    char written;
+    char padding[256 - sizeof(std::atomic_flag) - sizeof(char) -
+                 sizeof(LogLine)];
+    LogLine logline;
+  };
+
+  RingBuffer(const size_t size)
+      : _size(size),
+        _ring(static_cast<Item*>(std::malloc(size * sizeof(Item)))),
+        _write_index(0),
+        _read_index(0) {
+    for (size_t i = 0; i < _size; ++i) {
+      new (&_ring[i]) Item();
+    }
+    static_assert(sizeof(Item) == 256, "Unexpected size != 256");
+  }
+
+ private:
+  const size_t _size;
+  Item* _ring;
+  std::atomic<unsigned int> _write_index;
+  char pad[64];
+  unsigned int _read_index;
+};
 
 }  // namespace mengsen_log
