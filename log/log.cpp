@@ -7,8 +7,9 @@
 
 #include "log.h"
 
-#include <chrono>  // for time stamp
-#include <thread>  // for thread
+#include <chrono>   // for time stamp
+#include <cstring>  // for memcpy() strlen()
+#include <thread>   // for thread
 
 namespace {
 // internal linkage mean internal visible
@@ -148,7 +149,7 @@ LogLine::~LogLine() = default;
 template <typename Arg>
 void LogLine::encode(Arg arg) {
   *(reinterpret_cast<Arg*>(buffer())) = arg;
-  _bytes_used += sizeof(arg);
+  _bytes_used += sizeof(Arg);
 }
 
 /**
@@ -162,6 +163,28 @@ void LogLine::encode(Arg arg, uint8_t type_id) {
   resize_buffer_if_needed(sizeof(Arg) + sizeof(uint8_t));
   encode<uint8_t>(typeid);
   encode<Arg>(arg);
+}
+
+void LogLine::encode(const char* arg) {
+  if (arg != nullptr) encode_c_string(arg, strlen(arg));
+  return;
+}
+
+void LogLine::encode(char* arg) {
+  if (arg != nullptr) encode_c_string(arg, strlen(arg));
+  return;
+}
+
+void LogLine::encode_c_string(const char* arg, size_t length) {
+  if (length == 0) return;
+
+  resize_buffer_if_needed(1 + length + 1);
+  char* b = buffer();
+  auto type_id = TupleIndex<char*, SupportedTypes>::value;
+  *(reinterpret_cast<uint8_t*>(b++)) = static_cast<uint8_t>(type_id);
+  memcpy(b, arg, length + 1);
+  _bytes_used += 1 + length + 1;
+  return;
 }
 
 /**
@@ -212,6 +235,122 @@ void LogLine::stringify(std::ostream& os) {
     os.flush();
   }
   return;
+}
+
+//? unknow
+template <typename Arg>
+char* decode(std::ostream& os, char* b, Arg* dummy) {
+  Arg arg = *(reinterpret_cast<Arg*>(b));
+  os << arg;
+  return b + sizeof(Arg);
+}
+template <>
+char* decode(std::ostream& os, char* b, LogLine::string_literal_t* dummy) {
+  LogLine::string_literal_t s =
+      *(reinterpret_cast<LogLine::string_literal_t*>(b));
+  os << s._s;
+  return b + sizeof(LogLine::string_literal_t);
+}
+template <>
+char* decode(std::ostream& os, char* b, char** dummy) {
+  while (*b != '\0') {
+    os << *b;
+    ++b;
+  }
+  return ++b;
+}
+
+void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
+  if (start == end) return;
+  int type_id = static_cast<int>(*start);
+  ++start;
+
+  switch (type_id) {
+#define CASE(num)                                                           \
+  case num:                                                                 \
+    stringify(                                                              \
+        os,                                                                 \
+        decode(os, start,                                                   \
+               static_cast<std::tuple_element<num, SupportedTypes>::type*>( \
+                   nullptr)),                                               \
+        end);
+    return;
+
+    CASE(0);
+    CASE(1);
+    CASE(2);
+    CASE(3);
+    CASE(4);
+    CASE(5);
+    CASE(6);
+
+#undef CASE
+  }
+}
+
+char* LogLine::buffer() {
+  return !_heap_buffer ? &_stack_buffer[_bytes_used]
+                       : &(_heap_buffer.get())[_bytes_used];
+}
+
+/**
+ * @brief: resize buffer if needed
+ * @param: [in] size_t additional_bytes
+ * @return: void
+ */
+void LogLine::resize_buffer_if_needed(size_t additional_bytes) {
+  const size_t required_size = _bytes_used + additional_bytes;
+  if (required_size <= _buffer_size) return;  // no need resize buffer size
+
+  // need to resize buffer
+  if (!_heap_buffer) {  // no heap space
+    _buffer_size = std::max(static_cast<size_t>(512), required_size);
+    _heap_buffer.reset(new char[_buffer_size]);
+    memcpy(_heap_buffer.get(), _stack_buffer, _bytes_used);
+    return;
+  } else {  // has heap space but no need
+    // copy and swap
+    _buffer_size = std::max(static_cast<size_t>(512), required_size);
+    std::unique_ptr<char[]> new_heap_buffer(new char[_buffer_size]);
+    memcpy(new_heap_buffer.get(), _heap_buffer.get(), _bytes_used);
+    _heap_buffer.swap(new_heap_buffer);
+  }
+  return;
+}
+
+LogLine& LogLine::operator<<(const std::string& arg) {
+  encode_c_string(arg.c_str(), arg.size());
+  return *this;
+}
+
+LogLine& LogLine::operator<<(int32_t arg) {
+  encode<int32_t>(arg, TupleIndex<int32_t, SupportedTypes>::value);
+  return *this;
+}
+
+LogLine& LogLine::operator<<(uint32_t arg) {
+  encode<uint32_t>(arg, TupleIndex<uint32_t, SupportedTypes>::value);
+  return *this;
+}
+
+LogLine& LogLine::operator<<(int64_t arg) {
+  encode<int64_t>(arg, TupleIndex<int64_t, SupportedTypes>::value);
+  return *this;
+}
+
+LogLine& LogLine::operator<<(uint64_t arg) {
+  encode<uint64_t>(arg, TupleIndex<uint64_t, SupportedTypes>::value);
+  return *this;
+}
+
+LogLine& LogLine::operator<<(double arg) {
+  encode<double>(arg, TupleIndex<double, SupportedTypes>::value);
+  return *this;
+}
+
+LogLine& LogLine::operator<<(char arg) {
+  encode<char>(arg, TupleIndex<char, SupportedTypes>::value);
+  return *this;
 }
 
 }  // namespace mengsen_log
