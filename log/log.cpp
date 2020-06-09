@@ -10,6 +10,8 @@
 #include <atomic>   //for atomic and atomic_flag
 #include <chrono>   // for time stamp
 #include <cstring>  // for memcpy() strlen()
+#include <fstream>  // for FileWriter class
+#include <queue>    // QueueBuffer class
 #include <thread>   // for thread
 
 namespace {
@@ -360,6 +362,9 @@ struct BufferBase {
   virtual bool try_pop(LogLine& logline) = 0;
 };
 
+/**
+ * @brief: set flag for atomic flag
+ */
 struct SpinLock {
   SpinLock(std::atomic_flag& flag) : _flag(flag) {
     while (_flag.test_and_set(std::memory_order_acquire))
@@ -497,6 +502,113 @@ class QueueBuffer : public BufferBase {
  public:
   QueueBuffer(const QueueBuffer&) = delete;
   QueueBuffer& operator=(const QueueBuffer&) = delete;
+  QueueBuffer()
+      : _current_write_buffer(nullptr),
+        _write_index(0),
+        _flags(ATOMIC_FLAG_INIT),
+        _read_index(0) {
+    setup_next_write_buffer();
+  }
+
+  void push(LogLine&& logline) override {
+    unsigned int write_index =
+        _write_index.fetch_add(1, std::memory_order_relaxed);
+    if (write_index < Buffer::size) {
+      if (_current_write_buffer.load(std::memory_order_acquire)
+              ->push(std::move(logline), write_index)) {
+        setup_next_write_buffer();
+      }
+    } else {
+      while (_write_index.load(std::memory_order_acquire) >= Buffer::size)
+        ;
+      push(std::move(logline));
+    }
+  }
+
+  bool try_pop(LogLine& logline) override {
+    if (_current_write_buffer == nullptr)
+      _current_read_buffer = get_next_read_buffer();
+    Buffer* read_buffer = _current_read_buffer;
+    if (read_buffer == nullptr) return false;
+    if (bool success = read_buffer->try_pop(logline, _read_index)) {
+      ++_read_index;
+      if (_read_index == Buffer::size) {
+        _read_index = 0;
+        _current_read_buffer = nullptr;
+        SpinLock spinlock(_flags);
+        _buffers.pop();
+      }
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  void setup_next_write_buffer() {
+    std::unique_ptr<Buffer> next_write_buffer(new Buffer);
+    _current_write_buffer.store(next_write_buffer.get(),
+                                std::memory_order_release);
+    SpinLock spinlock(_flags);
+    _buffers.push(std::move(next_write_buffer));
+    _write_index.store(0, std::memory_order_relaxed);
+  }
+
+  Buffer* get_next_read_buffer() {
+    SpinLock spinlock(_flags);
+    return _buffers.empty() ? nullptr : _buffers.front().get();
+  }
+
+ private:
+  std::queue<std::unique_ptr<Buffer>> _buffers;
+  std::atomic<Buffer*> _current_write_buffer;
+  Buffer* _current_read_buffer;
+  std::atomic<unsigned int> _write_index;
+  std::atomic_flag _flags;
+  unsigned int _read_index;
 };
+
+class FileWriter {
+ public:
+  FileWriter(const std::string& log_directorary,
+             const std::string& log_file_name, uint32_t log_file_roll_size_mb)
+      : _log_file_roll_size_bytes(log_file_roll_size_mb + 1024 * 1024),
+        _name(log_directorary + log_file_name) {
+    roll_file();
+  }
+
+  void write(LogLine& logline) {
+    std::streampos pos = _os->tellp();
+    logline.stringify(*_os);
+    _bytes_written += _os->tellp() - pos;
+    if (_bytes_written > _log_file_roll_size_bytes) roll_file();
+    return;
+  }
+
+ private:
+  void roll_file() {
+    if (_os) {
+      _os->flush();
+      _os->close();
+    }
+    _bytes_written = 0;
+    _os.reset(new std::ofstream());
+    // TODO Optimize this part Does it even matter ?
+    std::string log_file_name = _name;
+    log_file_name.append(".");
+    log_file_name.append(std::to_string(++_file_number));
+    log_file_name.append(".log");
+    _os->open(log_file_name, std::ofstream::out | std::ofstream::trunc);
+  }
+
+ private:
+  uint32_t _file_number = 0;
+  std::streamoff _bytes_written = 0;
+  const uint32_t _log_file_roll_size_bytes;
+  const std::string _name;
+  std::unique_ptr<std::ofstream> _os;
+};
+
+// TODO
+class Logger {};
 
 }  // namespace mengsen_log
