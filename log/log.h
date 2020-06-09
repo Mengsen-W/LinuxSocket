@@ -42,7 +42,7 @@ class LogLine {
           uint32_t line);
   ~LogLine();
   LogLine(LogLine &&) = default;
-  LogLine &operator=(LogLine &) = default;
+  LogLine &operator=(LogLine &&) = default;
 
   void stringify(std::ostream &os);
 

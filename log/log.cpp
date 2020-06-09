@@ -374,7 +374,6 @@ struct SpinLock {
 /**
  * @brief Multi Producer Single Consumer Ring Buffer
  */
-// TODO
 class RingBuffer : public BufferBase {
  public:
   struct alignas(64) Item {
@@ -400,12 +399,104 @@ class RingBuffer : public BufferBase {
     static_assert(sizeof(Item) == 256, "Unexpected size != 256");
   }
 
+  ~RingBuffer() {
+    for (size_t i = 0; i < _size; ++i) {
+      _ring[i].~Item();
+    }
+    std::free(_ring);
+  }
+
+  RingBuffer(const RingBuffer&) = delete;
+  RingBuffer& operator=(const RingBuffer&) = delete;
+
+  void push(LogLine&& logline) override {
+    unsigned int write_index =
+        _write_index.fetch_add(1, std::memory_order_relaxed) % _size;
+    Item& item = _ring[write_index];
+    SpinLock spinlock(item.flag);
+    item.logline = std::move(logline);
+    item.written = 1;
+  }
+
+  bool try_pop(LogLine& logline) override {
+    Item& item = _ring[_write_index % _size];
+    SpinLock spinlock(item.flag);
+    if (item.written == 1) {
+      logline = std::move(item.logline);
+      item.written = 0;
+      ++_read_index;
+      return true;
+    }
+    return false;
+  }
+
  private:
   const size_t _size;
   Item* _ring;
   std::atomic<unsigned int> _write_index;
   char pad[64];
   unsigned int _read_index;
+};
+
+class Buffer {
+ public:
+  struct Item {
+    Item(LogLine&& logline) : _logline(std::move(logline)) {}
+    char padding[256 - sizeof(LogLine)];
+    LogLine _logline;
+  };
+
+  // 8MB. Helps reduce mempry fragmentation
+  static constexpr const size_t size = 32768;
+
+  Buffer() : _buffer(static_cast<Item*>(std::malloc(size * sizeof(Item)))) {
+    for (size_t i = 0; i <= size; ++i) {
+      _write_state[i].store(0, std::memory_order_relaxed);
+    }
+    static_assert(sizeof(Item) == 256, "Unexpected size != 256");
+  }
+  ~Buffer() {
+    unsigned int write_count = _write_state[size].load();
+    for (size_t i = 0; i < write_count; ++i) {
+      _buffer[i].~Item();
+    }
+    std::free(_buffer);
+  }
+  Buffer(const Buffer&) = delete;
+  Buffer& operator=(const Buffer&) = delete;
+
+  /**
+   * @brief: return true if we need to switch to next buffer
+   * @param: [in] LogLine &&logline
+   * @param: [in] const unsigned int write_index
+   * @return: bool
+   */
+  bool push(LogLine&& logline, const unsigned int write_index) {
+    new (&_buffer[write_index]) Item(std::move(logline));
+    _write_state[write_index].store(1, std::memory_order_release);
+    return _write_state[size].fetch_add(1, std::memory_order_acquire) + 1 ==
+           size;
+  }
+
+  bool try_pop(LogLine& logline, const unsigned int read_index) {
+    if (_write_state[read_index].load(std::memory_order_acquire)) {
+      Item& item = _buffer[read_index];
+      logline = std::move(item._logline);
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  Item* _buffer;
+  std::atomic<unsigned int> _write_state[size + 1];
+};
+
+// TODO
+class QueueBuffer : public BufferBase {
+ public:
+  QueueBuffer(const QueueBuffer&) = delete;
+  QueueBuffer& operator=(const QueueBuffer&) = delete;
 };
 
 }  // namespace mengsen_log
