@@ -608,7 +608,96 @@ class FileWriter {
   std::unique_ptr<std::ofstream> _os;
 };
 
-// TODO
-class Logger {};
+class Logger {
+ public:
+  Logger(NonGuaranteedLogger ngl, const std::string& log_directorary,
+         const std::string& log_file_name, uint32_t log_file_roll_size_mb)
+      : _state(State::INIT),
+        _buffer_base(
+            new RingBuffer(std::max(1u, ngl._ring_buffer_size_mb) * 1024 * 4)),
+        _file_writer(log_directorary, log_file_name,
+                     std::max(1u, log_file_roll_size_mb)),
+        _thread(&Logger::pop, this) {
+    _state.store(State::READY, std::memory_order_release);
+  }
+
+  Logger(GuaranteedLogger gl, const std::string& log_directorary,
+         const std::string& log_file_name, uint32_t log_file_roll_size_mb)
+      : _state(State::INIT),
+        _buffer_base(new QueueBuffer),
+        _file_writer(log_directorary, log_file_name,
+                     std::max(1u, log_file_roll_size_mb)),
+        _thread(&Logger::pop, this) {
+    _state.store(State::READY, std::memory_order_release);
+  }
+  ~Logger() {
+    _state.store(State::SHUTDOWN);
+    _thread.join();
+  }
+
+  void add(LogLine&& logline) { _buffer_base->push(std::move(logline)); }
+
+  void pop() {
+    // wait for constructor to complete
+    // and pull all stores done there to thisthread / core.
+    while (_state.load(std::memory_order_acquire) == State::INIT) {
+      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      LogLine logline(LogLevel::INFO, nullptr, nullptr, 0);
+
+      while (_state.load() == State::READY) {
+        if (_buffer_base->try_pop(logline))
+          _file_writer.write(logline);
+        else
+          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+
+      // State::SHUTDOWN
+      // pop and log all remaining entries
+      while (_buffer_base->try_pop(logline)) _file_writer.write(logline);
+    }
+  }
+
+ private:
+  enum class State { INIT, READY, SHUTDOWN };
+
+  std::atomic<State> _state;
+  std::unique_ptr<BufferBase> _buffer_base;
+  FileWriter _file_writer;
+  std::thread _thread;
+};
+
+std::unique_ptr<Logger> logger;
+std::atomic<Logger*> atomic_logger;
+
+bool Log::operator==(LogLine& logline) {
+  atomic_logger.load(std::memory_order_acquire)->add(std::move(logline));
+}
+
+void initialize(NonGuaranteedLogger ngl, const std::string& log_directorary,
+                const std::string& log_file_name,
+                uint32_t log_file_roll_size_mb) {
+  logger.reset(
+      new Logger(ngl, log_directorary, log_file_name, log_file_roll_size_mb));
+  atomic_logger.store(logger.get(), std::memory_order_seq_cst);
+}
+
+void initialize(GuaranteedLogger gl, const std::string& log_directorary,
+                const std::string& log_file_name,
+                uint32_t log_file_roll_size_mb) {
+  logger.reset(
+      new Logger(gl, log_directorary, log_file_name, log_file_roll_size_mb));
+  atomic_logger.store(logger.get(), std::memory_order_seq_cst);
+}
+
+std::atomic<unsigned int> loglevel = {0};
+
+void set_log_level(LogLevel level) {
+  loglevel.store(static_cast<unsigned int>(level), std::memory_order_release);
+}
+
+bool is_logger(LogeLevel level) {
+  return static_cast<unsigned int>(level) >=
+         loglevel.load(std::memory_order_relaxed);
+}
 
 }  // namespace mengsen_log
