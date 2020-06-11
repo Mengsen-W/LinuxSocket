@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-06 19:27:05
+ * @Last Modified time: 2020-06-11 21:30:35
  */
 
 #include "log.h"
@@ -55,7 +55,7 @@ void format_timestamp(std::ostream& os, uint64_t timestamp) {
   // converts the time format to the format we want
   strftime(buffer, 32, "%Y-%m-%d %T.", gmtime);
   char microseconds[7];
-  sprintf(microseconds, "%06llu", timestamp % 1000000);
+  sprintf(microseconds, "%06lu", timestamp % 1000000);
   os << '[' << buffer << microseconds << ']';
 }
 
@@ -70,20 +70,21 @@ std::thread::id this_thread_id() {
 }
 
 /**
- *  Gets the index location of the data type specified
+ * Gets the index location of the data type specified
  * in the tuple parameterlistn
  */
 template <typename T, typename Tuple>
 struct TupleIndex;
-
+// exit
 template <typename T, typename... Types>
 struct TupleIndex<T, std::tuple<T, Types...>> {
   static constexpr const std::size_t value = 0;
 };
+// entrance
 template <typename T, typename U, typename... Types>
 struct TupleIndex<T, std::tuple<U, Types...>> {
   static constexpr const std::size_t value =
-      1 + TupleIndex<T, std::tuple<Types>>::value;
+      1 + TupleIndex<T, std::tuple<Types...>>::value;
 };
 
 }  // anonymous namespace
@@ -164,7 +165,7 @@ void LogLine::encode(Arg arg) {
 template <typename Arg>
 void LogLine::encode(Arg arg, uint8_t type_id) {
   resize_buffer_if_needed(sizeof(Arg) + sizeof(uint8_t));
-  encode<uint8_t>(typeid);
+  encode<uint8_t>(type_id);
   encode<Arg>(arg);
 }
 
@@ -276,7 +277,7 @@ void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
         decode(os, start,                                                   \
                static_cast<std::tuple_element<num, SupportedTypes>::type*>( \
                    nullptr)),                                               \
-        end);
+        end);                                                               \
     return;
 
     CASE(0);
@@ -415,7 +416,7 @@ class RingBuffer : public BufferBase {
   RingBuffer& operator=(const RingBuffer&) = delete;
 
   void push(LogLine&& logline) override {
-    unsigned int write_index =
+    size_t write_index =
         _write_index.fetch_add(1, std::memory_order_relaxed) % _size;
     Item& item = _ring[write_index];
     SpinLock spinlock(item.flag);
@@ -438,7 +439,7 @@ class RingBuffer : public BufferBase {
  private:
   const size_t _size;
   Item* _ring;
-  std::atomic<unsigned int> _write_index;
+  std::atomic<size_t> _write_index;
   char pad[64];
   unsigned int _read_index;
 };
@@ -530,7 +531,7 @@ class QueueBuffer : public BufferBase {
       _current_read_buffer = get_next_read_buffer();
     Buffer* read_buffer = _current_read_buffer;
     if (read_buffer == nullptr) return false;
-    if (bool success = read_buffer->try_pop(logline, _read_index)) {
+    if (read_buffer->try_pop(logline, _read_index)) {
       ++_read_index;
       if (_read_index == Buffer::size) {
         _read_index = 0;
@@ -671,6 +672,7 @@ std::atomic<Logger*> atomic_logger;
 
 bool Log::operator==(LogLine& logline) {
   atomic_logger.load(std::memory_order_acquire)->add(std::move(logline));
+  return true;
 }
 
 void initialize(NonGuaranteedLogger ngl, const std::string& log_directorary,
@@ -695,7 +697,7 @@ void set_log_level(LogLevel level) {
   loglevel.store(static_cast<unsigned int>(level), std::memory_order_release);
 }
 
-bool is_logger(LogeLevel level) {
+bool is_logger(LogLevel level) {
   return static_cast<unsigned int>(level) >=
          loglevel.load(std::memory_order_relaxed);
 }

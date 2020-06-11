@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-04 21:38:59
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-06 19:18:24
+ * @Last Modified time: 2020-06-11 21:15:19
  */
 
 #include <cstdint>
@@ -57,6 +57,7 @@ class LogLine {
   template <size_t N>
   LogLine &operator<<(const char (&arg)[]) {
     encode(string_literal_t(arg));
+    return *this;
   }
 
   // if arg same as const char* or char *return LogLine
