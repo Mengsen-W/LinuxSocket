@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-04 21:38:59
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-11 21:15:19
+ * @Last Modified time: 2020-06-12 17:13:06
  */
 
 #include <cstdint>
@@ -60,7 +60,9 @@ class LogLine {
     return *this;
   }
 
-  // if arg same as const char* or char *return LogLine
+  /**
+   * @brief: const char* operator << version
+   */
   template <typename Arg>
   typename std::enable_if<std::is_same<Arg, const char *>::value,
                           LogLine &>::type
@@ -69,6 +71,9 @@ class LogLine {
     return *this;
   }
 
+  /**
+   * @brief: char* operator << version
+   */
   template <typename Arg>
   typename std::enable_if<std::is_same<Arg, char *>::value, LogLine &>::type
   operator<<(const Arg &arg) {

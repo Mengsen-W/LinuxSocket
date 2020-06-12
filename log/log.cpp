@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-11 21:30:35
+ * @Last Modified time: 2020-06-12 19:17:17
  */
 
 #include "log.h"
@@ -14,8 +14,8 @@
 #include <queue>    // QueueBuffer class
 #include <thread>   // for thread
 
+// internal linkage and means internal visible
 namespace {
-// internal linkage mean internal visible
 
 /**
  * @brief: get time stamp
@@ -71,7 +71,7 @@ std::thread::id this_thread_id() {
 
 /**
  * Gets the index location of the data type specified
- * in the tuple parameterlistn
+ * in the tuple parameter index
  */
 template <typename T, typename Tuple>
 struct TupleIndex;
@@ -90,12 +90,14 @@ struct TupleIndex<T, std::tuple<U, Types...>> {
 }  // anonymous namespace
 
 namespace mengsen_log {
+
+// for test entrance type
 typedef std::tuple<char, uint32_t, uint64_t, int32_t, int64_t, double,
                    LogLine::string_literal_t, char*>
     SupportedTypes;
 
 /**
- * @brief: convert LogLevel to string
+ * @brief: convert int8_t enum class LogLevel to string
  * @param: [in] LogLevel
  * @return: const char *
  */
@@ -116,6 +118,7 @@ const char* to_string(LogLevel loglevel) {
     LEVEL(FATAL);
 
 #undef LEVEL
+
     default:
       return "unknow";
   }
@@ -146,7 +149,49 @@ LogLine::LogLine(LogLevel loglevel, const char* file, const char* function,
 LogLine::~LogLine() = default;
 
 /**
- * @brief: encode arg to buffer
+ * @brief: get a usable buffer sit from stack or heap
+ * @param: void
+ * @return: char *
+ */
+char* LogLine::buffer() {
+  return !_heap_buffer ? &_stack_buffer[_bytes_used]
+                       : &(_heap_buffer.get())[_bytes_used];
+}
+
+/**
+ * @brief: resize buffer if needed
+ * @param: [in] size_t additional_bytes
+ * @return: void
+ */
+void LogLine::resize_buffer_if_needed(size_t additional_bytes) {
+  // get requited size from used bytes add additional bytes
+  const size_t required_size = _bytes_used + additional_bytes;
+
+  // no need resize buffer size
+  if (required_size <= _buffer_size) return;
+
+  // need to resize buffer
+
+  if (!_heap_buffer) {
+    // no heap space
+    _buffer_size = std::max(static_cast<size_t>(512), required_size);
+    // new heap
+    _heap_buffer.reset(new char[_buffer_size]);
+    // init heap
+    memcpy(_heap_buffer.get(), _stack_buffer, _bytes_used);
+    return;
+  } else {
+    // has heap space copy and swap
+    _buffer_size = std::max(static_cast<size_t>(512), required_size);
+    std::unique_ptr<char[]> new_heap_buffer(new char[_buffer_size]);
+    memcpy(new_heap_buffer.get(), _heap_buffer.get(), _bytes_used);
+    _heap_buffer.swap(new_heap_buffer);
+  }
+  return;
+}
+
+/**
+ * @brief: encode arg to buffer for LogLine construction
  * @param:[in] typename Arg arg
  * @return: void
  */
@@ -157,7 +202,8 @@ void LogLine::encode(Arg arg) {
 }
 
 /**
- * @brief: call resize_buffer_if_needed() and call single variable encode
+ * @brief: call resize_buffer_if_needed() and used in operator <<
+ * internal call single encode
  * @param:[in] Arg arg
  * @param:[in] uint8_t type_id
  * @return: void
@@ -169,36 +215,102 @@ void LogLine::encode(Arg arg, uint8_t type_id) {
   encode<Arg>(arg);
 }
 
-void LogLine::encode(const char* arg) {
-  if (arg != nullptr) encode_c_string(arg, strlen(arg));
-  return;
-}
-
-void LogLine::encode(char* arg) {
-  if (arg != nullptr) encode_c_string(arg, strlen(arg));
-  return;
-}
-
+/**
+ * @brief: tansform const cha* to string and encode
+ * @param: [in] const char *arg
+ * @param: [in] size_t length
+ * @return: void
+ */
 void LogLine::encode_c_string(const char* arg, size_t length) {
   if (length == 0) return;
 
+  // There is a space between the type_id and the content
   resize_buffer_if_needed(1 + length + 1);
   char* b = buffer();
-  auto type_id = TupleIndex<char*, SupportedTypes>::value;
+  size_t type_id = TupleIndex<char*, SupportedTypes>::value;
+  // written type_id
   *(reinterpret_cast<uint8_t*>(b++)) = static_cast<uint8_t>(type_id);
+  // copy char * and There's '/0' at the end
   memcpy(b, arg, length + 1);
   _bytes_used += 1 + length + 1;
   return;
 }
 
 /**
- * @brief:
+ * @brief: call encode_c_string and Use strlen() to calculate the length
+ * @param: [in] const char *arg
+ * @return: void
+ */
+void LogLine::encode(const char* arg) {
+  if (arg != nullptr) encode_c_string(arg, strlen(arg));
+  return;
+}
+
+/**
+ * @brief: call encode_c_string and Use strlen() to calculate the length
+ * @param: [in] char *arg
+ * @return: void
+ */
+void LogLine::encode(char* arg) {
+  if (arg != nullptr) encode_c_string(arg, strlen(arg));
+  return;
+}
+
+/**
+ * @brief: write os according to type id
+ * @param: [in] std::ostream &os
+ * @param: [in] char *b
+ * @param: [in] typename Arg *dummy (just used to check 'b' type)
+ * @return: char *
+ */
+template <typename Arg>
+char* decode(std::ostream& os, char* b, Arg* dummy) {
+  Arg arg = *(reinterpret_cast<Arg*>(b));
+  os << arg;
+  return b + sizeof(Arg);
+}
+
+/**
+ * @brief: decode All the specialized
+ * @param: [in] std::ostream &os
+ * @param: [in] char *b
+ * @param: [in] LogLine::string_literal_t *dummy
+ * @return: char *
+ */
+template <>
+char* decode(std::ostream& os, char* b, LogLine::string_literal_t* dummy) {
+  LogLine::string_literal_t s =
+      *(reinterpret_cast<LogLine::string_literal_t*>(b));
+  os << s._s;
+  return b + sizeof(LogLine::string_literal_t);
+}
+
+/**
+ * @brief: decode All the specialized
+ * @param: [in] std::ostream &os
+ * @param: [in] char *b
+ * @param: [in] char **dummy
+ * @return: char *
+ */
+template <>
+char* decode(std::ostream& os, char* b, char** dummy) {
+  while (*b != '\0') {
+    os << *b;
+    ++b;
+  }
+  return ++b;
+}
+/**
+ * @brief: Provide an interface to buffer write
+ * @param: [in] std::ostream &os
+ * @return: void
  */
 void LogLine::stringify(std::ostream& os) {
   // get space pointer
   char* b = !_heap_buffer ? _stack_buffer : _heap_buffer.get();
-  // temp variable for stringify() double parameter version
-  // or shuold be able to pass const reference
+
+  // temp variable 'const char * const end'
+  // for stringify() double parameter version
   const char* const end = b + _bytes_used;
   // get time stamp
   uint64_t timestamp = *(reinterpret_cast<uint64_t*>(b));
@@ -225,10 +337,11 @@ void LogLine::stringify(std::ostream& os) {
   // pass pointer log level
   b += sizeof(LogLevel);
 
-  // format timestamp
+  // format timestamp and write to os
   format_timestamp(os, timestamp);
 
-  // timestamp[loglevel][threadid][filename:functionname:line]
+  // write head line
+  // timestamp [loglevel][threadid][filename:functionname:line]
   os << '[' << to_string(loglevel) << ']' << '[' << threadid << ']' << '['
      << file._s << ':' << function._s << ':' << line << "] ";
 
@@ -241,33 +354,18 @@ void LogLine::stringify(std::ostream& os) {
   return;
 }
 
-//? unknow
-template <typename Arg>
-char* decode(std::ostream& os, char* b, Arg* dummy) {
-  Arg arg = *(reinterpret_cast<Arg*>(b));
-  os << arg;
-  return b + sizeof(Arg);
-}
-template <>
-char* decode(std::ostream& os, char* b, LogLine::string_literal_t* dummy) {
-  LogLine::string_literal_t s =
-      *(reinterpret_cast<LogLine::string_literal_t*>(b));
-  os << s._s;
-  return b + sizeof(LogLine::string_literal_t);
-}
-template <>
-char* decode(std::ostream& os, char* b, char** dummy) {
-  while (*b != '\0') {
-    os << *b;
-    ++b;
-  }
-  return ++b;
-}
-
+/**
+ * @brief: recursive write comment according to type id
+ * @param: [in] std::ostream &os
+ * @param: [in] char *start
+ * @param: [in] const char * const end
+ * @return: void
+ */
 void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
   if (start == end) return;
-  int type_id = static_cast<int>(*start);
-  ++start;
+
+  uint8_t type_id = *(reinterpret_cast<uint8_t*>(start));
+  start += sizeof(uint8_t);
 
   switch (type_id) {
 #define CASE(num)                                                           \
@@ -290,36 +388,6 @@ void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
 
 #undef CASE
   }
-}
-
-char* LogLine::buffer() {
-  return !_heap_buffer ? &_stack_buffer[_bytes_used]
-                       : &(_heap_buffer.get())[_bytes_used];
-}
-
-/**
- * @brief: resize buffer if needed
- * @param: [in] size_t additional_bytes
- * @return: void
- */
-void LogLine::resize_buffer_if_needed(size_t additional_bytes) {
-  const size_t required_size = _bytes_used + additional_bytes;
-  if (required_size <= _buffer_size) return;  // no need resize buffer size
-
-  // need to resize buffer
-  if (!_heap_buffer) {  // no heap space
-    _buffer_size = std::max(static_cast<size_t>(512), required_size);
-    _heap_buffer.reset(new char[_buffer_size]);
-    memcpy(_heap_buffer.get(), _stack_buffer, _bytes_used);
-    return;
-  } else {  // has heap space but no need
-    // copy and swap
-    _buffer_size = std::max(static_cast<size_t>(512), required_size);
-    std::unique_ptr<char[]> new_heap_buffer(new char[_buffer_size]);
-    memcpy(new_heap_buffer.get(), _heap_buffer.get(), _bytes_used);
-    _heap_buffer.swap(new_heap_buffer);
-  }
-  return;
 }
 
 LogLine& LogLine::operator<<(const std::string& arg) {
@@ -357,6 +425,9 @@ LogLine& LogLine::operator<<(char arg) {
   return *this;
 }
 
+/**
+ * @brief: Buffer Base virtual
+ */
 struct BufferBase {
   virtual ~BufferBase() = default;
   virtual void push(LogLine&& logline) = 0;
@@ -378,76 +449,16 @@ struct SpinLock {
 };
 
 /**
- * @brief Multi Producer Single Consumer Ring Buffer
+ * @brief: logline's buffer
  */
-class RingBuffer : public BufferBase {
- public:
-  struct alignas(64) Item {
-    Item()
-        : flag(ATOMIC_FLAG_INIT),
-          written(0),
-          logline(LogLevel::INFO, nullptr, nullptr, 0) {}
-    std::atomic_flag flag;
-    char written;
-    char padding[256 - sizeof(std::atomic_flag) - sizeof(char) -
-                 sizeof(LogLine)];
-    LogLine logline;
-  };
-
-  RingBuffer(const size_t size)
-      : _size(size),
-        _ring(static_cast<Item*>(std::malloc(size * sizeof(Item)))),
-        _write_index(0),
-        _read_index(0) {
-    for (size_t i = 0; i < _size; ++i) {
-      new (&_ring[i]) Item();
-    }
-    static_assert(sizeof(Item) == 256, "Unexpected size != 256");
-  }
-
-  ~RingBuffer() {
-    for (size_t i = 0; i < _size; ++i) {
-      _ring[i].~Item();
-    }
-    std::free(_ring);
-  }
-
-  RingBuffer(const RingBuffer&) = delete;
-  RingBuffer& operator=(const RingBuffer&) = delete;
-
-  void push(LogLine&& logline) override {
-    size_t write_index =
-        _write_index.fetch_add(1, std::memory_order_relaxed) % _size;
-    Item& item = _ring[write_index];
-    SpinLock spinlock(item.flag);
-    item.logline = std::move(logline);
-    item.written = 1;
-  }
-
-  bool try_pop(LogLine& logline) override {
-    Item& item = _ring[_write_index % _size];
-    SpinLock spinlock(item.flag);
-    if (item.written == 1) {
-      logline = std::move(item.logline);
-      item.written = 0;
-      ++_read_index;
-      return true;
-    }
-    return false;
-  }
-
- private:
-  const size_t _size;
-  Item* _ring;
-  std::atomic<size_t> _write_index;
-  char pad[64];
-  unsigned int _read_index;
-};
-
 class Buffer {
  public:
+  /**
+   * @brief: logline item 256 bytes
+   */
   struct Item {
     Item(LogLine&& logline) : _logline(std::move(logline)) {}
+    // memory pad
     char padding[256 - sizeof(LogLine)];
     LogLine _logline;
   };
@@ -457,6 +468,7 @@ class Buffer {
 
   Buffer() : _buffer(static_cast<Item*>(std::malloc(size * sizeof(Item)))) {
     for (size_t i = 0; i <= size; ++i) {
+      // init write_state
       _write_state[i].store(0, std::memory_order_relaxed);
     }
     static_assert(sizeof(Item) == 256, "Unexpected size != 256");
@@ -478,12 +490,21 @@ class Buffer {
    * @return: bool
    */
   bool push(LogLine&& logline, const unsigned int write_index) {
+    // replace new
     new (&_buffer[write_index]) Item(std::move(logline));
+    // recorder state
     _write_state[write_index].store(1, std::memory_order_release);
+    // save item buffer number
     return _write_state[size].fetch_add(1, std::memory_order_acquire) + 1 ==
            size;
   }
 
+  /**
+   * @brief: try pop
+   * @param: [out] LogLine &logline
+   * @param: [int] const unsigned int read_index
+   * @return: bool with success
+   */
   bool try_pop(LogLine& logline, const unsigned int read_index) {
     if (_write_state[read_index].load(std::memory_order_acquire)) {
       Item& item = _buffer[read_index];
@@ -494,11 +515,15 @@ class Buffer {
   }
 
  private:
+  // logline item array
   Item* _buffer;
+  // recorder Item state last recorder sum of item
   std::atomic<unsigned int> _write_state[size + 1];
 };
 
-// TODO
+/**
+ * @brief: Queue buffer management buffer class
+ */
 class QueueBuffer : public BufferBase {
  public:
   QueueBuffer(const QueueBuffer&) = delete;
@@ -511,29 +536,48 @@ class QueueBuffer : public BufferBase {
     setup_next_write_buffer();
   }
 
+  /**
+   * @brief: push logline to buffer
+   * @param: [in] LogLine&& logline
+   * @return: void
+   */
   void push(LogLine&& logline) override {
+    // updare write index
     unsigned int write_index =
         _write_index.fetch_add(1, std::memory_order_relaxed);
+
     if (write_index < Buffer::size) {
+      // have memory left
       if (_current_write_buffer.load(std::memory_order_acquire)
               ->push(std::move(logline), write_index)) {
+        // if push() return true means need next buffer
         setup_next_write_buffer();
       }
     } else {
+      // wait another thread setup_next_write_buffer()
       while (_write_index.load(std::memory_order_acquire) >= Buffer::size)
         ;
       push(std::move(logline));
     }
   }
 
+  /**
+   * @brief: try pop logline
+   * @param: [out] LogLine &logline
+   * @return: bool with success
+   */
   bool try_pop(LogLine& logline) override {
-    if (_current_write_buffer == nullptr)
+    if (_current_read_buffer == nullptr)
       _current_read_buffer = get_next_read_buffer();
+
     Buffer* read_buffer = _current_read_buffer;
     if (read_buffer == nullptr) return false;
+
     if (read_buffer->try_pop(logline, _read_index)) {
+      // update read index
       ++_read_index;
       if (_read_index == Buffer::size) {
+        // nothing logline need read
         _read_index = 0;
         _current_read_buffer = nullptr;
         SpinLock spinlock(_flags);
@@ -545,29 +589,140 @@ class QueueBuffer : public BufferBase {
   }
 
  private:
+  /**
+   * @brief: set up next buffer
+   * @param: void
+   * @return: void
+   */
   void setup_next_write_buffer() {
     std::unique_ptr<Buffer> next_write_buffer(new Buffer);
+    // update current buffer pointer
     _current_write_buffer.store(next_write_buffer.get(),
                                 std::memory_order_release);
     SpinLock spinlock(_flags);
+    // push new buffer to queue
     _buffers.push(std::move(next_write_buffer));
+    // reset write index
     _write_index.store(0, std::memory_order_relaxed);
   }
 
+  /**
+   * @brief: get the latest read buffer or front queue
+   * @param: void
+   * @return: void
+   */
   Buffer* get_next_read_buffer() {
     SpinLock spinlock(_flags);
     return _buffers.empty() ? nullptr : _buffers.front().get();
   }
 
  private:
+  // unique_ptr of buffer's queue
   std::queue<std::unique_ptr<Buffer>> _buffers;
+  // current write buffer pointer
   std::atomic<Buffer*> _current_write_buffer;
+  // current read buffer pointer
   Buffer* _current_read_buffer;
+  // write index
   std::atomic<unsigned int> _write_index;
+  // atomic flag
   std::atomic_flag _flags;
+  // read index
   unsigned int _read_index;
 };
 
+/**
+ * @brief Multi Producer Single Consumer Ring Buffer
+ */
+class RingBuffer : public BufferBase {
+ public:
+  /**
+   * @brief: buffer Item
+   */
+  struct alignas(64) Item {
+    Item()
+        : flag(ATOMIC_FLAG_INIT),
+          written(0),
+          logline(LogLevel::INFO, nullptr, nullptr, 0) {}
+
+    std::atomic_flag flag;
+    char written;
+    char padding[256 - sizeof(std::atomic_flag) - sizeof(char) -
+                 sizeof(LogLine)];
+    LogLine logline;
+  };
+
+  RingBuffer(const size_t size)
+      : _size(size),
+        _ring(static_cast<Item*>(std::malloc(size * sizeof(Item)))),
+        _write_index(0),
+        _read_index(0) {
+    for (size_t i = 0; i < _size; ++i) {
+      // replace new
+      new (&_ring[i]) Item();
+    }
+    static_assert(sizeof(Item) == 256, "Unexpected size != 256");
+  }
+
+  ~RingBuffer() {
+    for (size_t i = 0; i < _size; ++i) {
+      _ring[i].~Item();
+    }
+    std::free(_ring);
+  }
+
+  RingBuffer(const RingBuffer&) = delete;
+  RingBuffer& operator=(const RingBuffer&) = delete;
+
+  /**
+   * @brief: push logline override
+   * @param: [in] LogLine&& logline
+   * @return: void
+   */
+  void push(LogLine&& logline) override {
+    // update write index
+    size_t write_index =
+        _write_index.fetch_add(1, std::memory_order_relaxed) % _size;
+    // get item and write logline to item
+    Item& item = _ring[write_index];
+    SpinLock spinlock(item.flag);
+    item.logline = std::move(logline);
+    item.written = 1;
+  }
+
+  /**
+   * @brief: try pop logline override
+   * @param: [out] LogLine &logline
+   * @return: bool with success
+   */
+  bool try_pop(LogLine& logline) override {
+    Item& item = _ring[_read_index % _size];
+    SpinLock spinlock(item.flag);
+    if (item.written == 1) {
+      logline = std::move(item.logline);
+      item.written = 0;
+      ++_read_index;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  // size of item
+  const size_t _size;
+  // item array pointer
+  Item* _ring;
+  // write index size == 8
+  std::atomic<size_t> _write_index;
+  // memory pad
+  char pad[64];
+  // read index
+  unsigned int _read_index;
+};
+
+/**
+ * @brief: file writer
+ */
 class FileWriter {
  public:
   FileWriter(const std::string& log_directorary,
@@ -691,13 +846,13 @@ void initialize(GuaranteedLogger gl, const std::string& log_directorary,
   atomic_logger.store(logger.get(), std::memory_order_seq_cst);
 }
 
-std::atomic<unsigned int> loglevel = {0};
+std::atomic<unsigned int8_t> loglevel = {0};
 
 void set_log_level(LogLevel level) {
   loglevel.store(static_cast<unsigned int>(level), std::memory_order_release);
 }
 
-bool is_logger(LogLevel level) {
+bool is_logged(LogLevel level) {
   return static_cast<unsigned int>(level) >=
          loglevel.load(std::memory_order_relaxed);
 }
