@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-13 20:46:01
+ * @Last Modified time: 2020-06-13 20:53:35
  */
 
 #include "log.h"
@@ -223,7 +223,6 @@ void LogLine::encode(Arg arg, uint8_t type_id) {
  */
 void LogLine::encode_c_string(const char* arg, size_t length) {
   if (length == 0) return;
-
   // There is a space between the type_id and the content
   resize_buffer_if_needed(1 + length + 1);
   char* b = buffer();
@@ -346,6 +345,7 @@ void LogLine::stringify(std::ostream& os) {
      << file._s << ':' << function._s << ':' << line << "] ";
 
   stringify(os, b, end);
+  os << std::endl;
 
   if (loglevel >= LogLevel::CRIT) {
     // Emergency log immediately output
@@ -363,9 +363,8 @@ void LogLine::stringify(std::ostream& os) {
  */
 void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
   if (start == end) return;
-  int type_id = static_cast<int>(*start);
-  start++;
-  std::cout << "type id = " << type_id << std::endl;
+  uint8_t type_id = *(reinterpret_cast<uint8_t*>(start));
+  start += sizeof(uint8_t);
 
   switch (type_id) {
 #define CASE(num)                                                           \
@@ -378,17 +377,16 @@ void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
         end);                                                               \
     return;
 
-    CASE(0);
-    CASE(1);
-    CASE(2);
-    CASE(3);
-    CASE(4);
-    CASE(5);
-    CASE(6);
+    CASE(0)
+    CASE(1)
+    CASE(2)
+    CASE(3)
+    CASE(4)
+    CASE(5)
+    CASE(6)
+    CASE(7)
 
 #undef CASE
-    default:
-      std::cout << "error" << std::endl;
   }
 }
 
