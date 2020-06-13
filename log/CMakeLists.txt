@@ -11,6 +11,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CXX_FLAGS
+  -std=c++17
 # for gdb
   -g
 # for waring infomation
@@ -50,12 +51,12 @@ set(SOURCE
 )
 
 add_library(mengsen_log STATIC ${SOURCE})
+target_link_libraries(mengsen_log pthread)
 
-# add_executable(co.out
-#   main.cpp
-# )
+add_executable(log.out
+  main.cpp
+)
 
-# target_link_libraries(co.out
-#   PRIVATE
-#     mengsen_co
-# )
+target_link_libraries(log.out
+    mengsen_log
+)

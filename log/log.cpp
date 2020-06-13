@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-12 19:17:17
+ * @Last Modified time: 2020-06-13 19:29:57
  */
 
 #include "log.h"
@@ -110,7 +110,7 @@ const char* to_string(LogLevel loglevel) {
     LEVEL(DEBUG);
     LEVEL(INFO);
     LEVEL(NOTICE);
-    LEVEL(WARNING)
+    LEVEL(WARN)
     LEVEL(ERROR);
     LEVEL(CRIT);
     LEVEL(ALERT);
@@ -363,9 +363,9 @@ void LogLine::stringify(std::ostream& os) {
  */
 void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
   if (start == end) return;
-
-  uint8_t type_id = *(reinterpret_cast<uint8_t*>(start));
-  start += sizeof(uint8_t);
+  int type_id = static_cast<int>(*start);
+  start++;
+  std::cout << "type id = " << type_id << std::endl;
 
   switch (type_id) {
 #define CASE(num)                                                           \
@@ -387,6 +387,8 @@ void LogLine::stringify(std::ostream& os, char* start, const char* const end) {
     CASE(6);
 
 #undef CASE
+    default:
+      std::cout << "error" << std::endl;
   }
 }
 
@@ -732,40 +734,69 @@ class FileWriter {
     roll_file();
   }
 
+  /**
+   * @brief: write log line to log file
+   * @param: [in] LogLine& logline
+   * @return: void
+   */
   void write(LogLine& logline) {
+    // get pos of output stream
     std::streampos pos = _os->tellp();
+    // write in output stream
     logline.stringify(*_os);
+    // save written position
     _bytes_written += _os->tellp() - pos;
+    // check roll file
     if (_bytes_written > _log_file_roll_size_bytes) roll_file();
     return;
   }
 
  private:
+  /**
+   * @brief: roll file
+   * @param: void
+   * @return: void
+   */
   void roll_file() {
+    // clean and close output stream
     if (_os) {
       _os->flush();
       _os->close();
     }
+    // clear written bytes
     _bytes_written = 0;
+    // reset os pointer
     _os.reset(new std::ofstream());
     // TODO Optimize this part Does it even matter ?
     std::string log_file_name = _name;
     log_file_name.append(".");
     log_file_name.append(std::to_string(++_file_number));
     log_file_name.append(".log");
+    // open file with output stream
     _os->open(log_file_name, std::ofstream::out | std::ofstream::trunc);
   }
 
  private:
+  // save file number of written
   uint32_t _file_number = 0;
+  // Type to represent position offsets in a stream
   std::streamoff _bytes_written = 0;
+  // roll file size
   const uint32_t _log_file_roll_size_bytes;
+  // file name
   const std::string _name;
+  // output file stream
   std::unique_ptr<std::ofstream> _os;
 };
 
+/**
+ * @brief: multi-thread logger
+ */
 class Logger {
  public:
+  /**
+   * @brief: constructor with NonGuaranteedLogger
+   */
   Logger(NonGuaranteedLogger ngl, const std::string& log_directorary,
          const std::string& log_file_name, uint32_t log_file_roll_size_mb)
       : _state(State::INIT),
@@ -777,6 +808,9 @@ class Logger {
     _state.store(State::READY, std::memory_order_release);
   }
 
+  /**
+   * @brief: constructor with GuaranteedLogger
+   */
   Logger(GuaranteedLogger gl, const std::string& log_directorary,
          const std::string& log_file_name, uint32_t log_file_roll_size_mb)
       : _state(State::INIT),
@@ -786,45 +820,68 @@ class Logger {
         _thread(&Logger::pop, this) {
     _state.store(State::READY, std::memory_order_release);
   }
+
   ~Logger() {
     _state.store(State::SHUTDOWN);
     _thread.join();
   }
 
+  /**
+   * @brief: push logline to buffer
+   * @param: [in] LogLine&& logline
+   * @return: void
+   */
   void add(LogLine&& logline) { _buffer_base->push(std::move(logline)); }
 
+  /**
+   * @brief: another thread just pop
+   */
   void pop() {
     // wait for constructor to complete
     // and pull all stores done there to thisthread / core.
-    while (_state.load(std::memory_order_acquire) == State::INIT) {
-      std::this_thread::sleep_for(std::chrono::microseconds(50));
-      LogLine logline(LogLevel::INFO, nullptr, nullptr, 0);
+    while (_state.load(std::memory_order_acquire) == State::INIT)
+      std::cout << "INIT" << std::endl;
+    std::this_thread::sleep_for(std::chrono::microseconds(50));
+    LogLine logline(LogLevel::INFO, nullptr, nullptr, 0);
 
-      while (_state.load() == State::READY) {
-        if (_buffer_base->try_pop(logline))
-          _file_writer.write(logline);
-        else
-          std::this_thread::sleep_for(std::chrono::milliseconds(50));
-      }
-
-      // State::SHUTDOWN
-      // pop and log all remaining entries
-      while (_buffer_base->try_pop(logline)) _file_writer.write(logline);
+    // update State to READY
+    while (_state.load() == State::READY) {
+      std::cout << "ready" << std::endl;
+      if (_buffer_base->try_pop(logline))
+        // pop logline and write to file
+        _file_writer.write(logline);
+      else
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
+
+    // State::SHUTDOWN
+    // pop and log all remaining entries
+    while (_buffer_base->try_pop(logline)) _file_writer.write(logline);
   }
 
  private:
+  // logger state
   enum class State { INIT, READY, SHUTDOWN };
-
+  // atomic state
   std::atomic<State> _state;
+  // management bufferbase class
   std::unique_ptr<BufferBase> _buffer_base;
+  // file writer class
   FileWriter _file_writer;
+  // thread
   std::thread _thread;
 };
 
+// unique_ptr to logger
 std::unique_ptr<Logger> logger;
+// atomic Logger*
 std::atomic<Logger*> atomic_logger;
 
+/**
+ * @brief: initialize atomic_logger and add logline
+ * @param: [in] LogLine& logline
+ * @return: bool with success
+ */
 bool Log::operator==(LogLine& logline) {
   atomic_logger.load(std::memory_order_acquire)->add(std::move(logline));
   return true;

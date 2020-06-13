@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-04 21:38:59
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-12 17:13:06
+ * @Last Modified time: 2020-06-13 18:48:53
  */
 
 #include <cstdint>
@@ -25,7 +25,7 @@ enum class LogLevel : uint8_t {
   DEBUG,
   INFO,
   NOTICE,
-  WARNING,
+  WARN,
   ERROR,
   CRIT,
   ALERT,
@@ -111,7 +111,9 @@ class LogLine {
       256 - 2 * sizeof(size_t) - sizeof(decltype(_buffer_size)) - 8];
 };
 
-//? non-clear the class used
+/**
+ * @brief: set logger pointer and add logline
+ */
 struct Log {
   bool operator==(LogLine &);
 };
@@ -145,7 +147,6 @@ struct NonGuaranteedLogger {
   uint32_t _ring_buffer_size_mb;
 };
 
-// TODO undefine
 /**
  * guaranteed log
  */
@@ -184,39 +185,39 @@ void initialize(GuaranteedLogger gl, const std::string &log_directorary,
 
 // log debug
 #define LOG_DEBUG                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::DEBUG) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::DEBUG) && \
       LOG(mengsen_log::LogLevel::DEBUG)
 // log info
 #define LOG_INFO                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::INFO) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::INFO) && \
       LOG(mengsen_log::LogLevel::INFO)
 // log notices
 #define LOG_NOTICE                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::NOTICE) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::NOTICE) && \
       LOG(mengsen_log::LogLevel::NOTICE)
-// log warring
-#define LOG_WARRING                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::WARNING) && \
-      LOG(mengsen_log::LogLevel::WARNING)
+// log warn
+#define LOG_WARN                                         \
+  mengsen_log::is_logged(mengsen_log::LogLevel::WARN) && \
+      LOG(mengsen_log::LogLevel::WARN)
 // log error
 #define LOG_ERROR                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::ERROR) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::ERROR) && \
       LOG(mengsen_log::LogLevel::ERROR)
 // log crit
 #define LOG_CRIT                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::CRIT) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::CRIT) && \
       LOG(mengsen_log::LogLevel::CRIT)
 // log alert
 #define LOG_ALERT                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::ALERT) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::ALERT) && \
       LOG(mengsen_log::LogLevel::ALERT)
 // log emerge
 #define LOG_EMERGE                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::EMERGE) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::EMERGE) && \
       LOG(mengsen_log::LogLevel::EMERGE)
 // log fatal
 #define LOG_FATAL                                         \
-  mengsen_log::is_logger(mengsen_log::LogLevel::FATAL) && \
+  mengsen_log::is_logged(mengsen_log::LogLevel::FATAL) && \
       LOG(mengsen_log::LogLevel::FATAL)
 
 #endif  // __MENGSEN_LOG_H__
