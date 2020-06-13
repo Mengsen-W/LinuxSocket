@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-13 19:29:57
+ * @Last Modified time: 2020-06-13 20:46:01
  */
 
 #include "log.h"
@@ -872,6 +872,7 @@ class Logger {
   std::thread _thread;
 };
 
+// static variable
 // unique_ptr to logger
 std::unique_ptr<Logger> logger;
 // atomic Logger*
