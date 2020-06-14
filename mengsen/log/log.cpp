@@ -872,9 +872,9 @@ class Logger {
 
 // static variable
 // unique_ptr to logger
-std::unique_ptr<Logger> logger;
+static std::unique_ptr<Logger> logger;
 // atomic Logger*
-std::atomic<Logger*> atomic_logger;
+static std::atomic<Logger*> atomic_logger;
 
 /**
  * @brief: initialize atomic_logger and add logline
