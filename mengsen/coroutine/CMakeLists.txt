@@ -9,7 +9,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CXX_FLAGS
-  -std=c++17
 # for gdb
   -g
 # for waring infomation
@@ -37,16 +36,15 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -finline-limit=1000 -DNODEBUG")
 # source dir mean CMakeLists.txt dir
 # binary dir mean executed cmake dir
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/libs)
-include_directories(${PROJECT_SOURCE_DIR}/log)
+include_directories(${PROJECT_SOURCE_DIR}/coroutine)
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
 message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_TYPE}})
 
 set(SOURCE
-  log.cpp
+  schedule.cpp
+  coroutine.cpp
 )
 
-add_library(mengsen_log STATIC ${SOURCE})
-target_link_libraries(mengsen_log pthread)
+add_library(mengsen_co STATIC ${SOURCE})

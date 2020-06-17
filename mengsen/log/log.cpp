@@ -902,6 +902,7 @@ void initialize(GuaranteedLogger gl, const std::string& log_directorary,
   atomic_logger.store(logger.get(), std::memory_order_seq_cst);
 }
 
+// defaule DEBUG loglevel
 std::atomic<unsigned int8_t> loglevel = {0};
 
 void set_log_level(LogLevel level) {

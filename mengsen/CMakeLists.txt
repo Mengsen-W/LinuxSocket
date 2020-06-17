@@ -1,6 +1,6 @@
-cmake_minimum_required( VERSION 3.5 )
+cmake_minimum_required( VERSION 3.10 )
 
-project(mengsen_co)
+project(mengsen)
 
 enable_testing()
 
@@ -45,18 +45,16 @@ include_directories(${PROJECT_SOURCE_DIR})
 string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
 message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_TYPE}})
 
-set(SOURCE
-  schedule.cpp
-  coroutine.cpp
-)
+add_subdirectory(./coroutine)
+add_subdirectory(./log)
 
-add_library(mengsen_co STATIC ${SOURCE})
-
-add_executable(co.out
+add_executable(main.out
   main.cpp
 )
 
-target_link_libraries(co.out
+target_link_libraries(main.out
   PRIVATE
     mengsen_co
+    mengsen_log
+    jsoncpp
 )
