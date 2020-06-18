@@ -45,6 +45,17 @@ include_directories(${PROJECT_SOURCE_DIR})
 string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
 message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_TYPE}})
 
+find_library(YAML NAMES yaml-cpp)
+find_library(JSON NAMES jsoncpp )
+
+if(YAML)
+  message(STATUS "found yaml-cpp")
+endif()
+
+if(JSON)
+  message(STATUS "found jsoncpp")
+endif()
+
 add_subdirectory(./coroutine)
 add_subdirectory(./log)
 
@@ -57,4 +68,5 @@ target_link_libraries(main.out
     mengsen_co
     mengsen_log
     jsoncpp
+    yaml-cpp
 )
