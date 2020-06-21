@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-19 15:34:53
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-19 18:31:57
+ * @Last Modified time: 2020-06-19 21:36:57
  */
 
 #ifndef __MENGSEN_CONFIG_H__
@@ -433,6 +433,33 @@ class ConfigVar : public ConfigVarBase {
    */
   std::string getType() const override;
 
+  /**
+   * @brief: add call back function
+   * @return: uint64_t key (the unique id fo call back function)
+   */
+  uint64_t addListener(change_func fun);
+
+  /**
+   * @brief: delete call back function
+   * @param: [in] uint64_t key (the unique id fo call back function)
+   * @return: void
+   */
+  void deleteListener(uint64_t key);
+
+  /**
+   * @brief: get call back function
+   * @param: [in] uint64_t key (the unique id fo call back function)
+   * @return: change_func
+   */
+  change_func getListener(uint64_t key);
+
+  /**
+   * @brief: clear all of call back function
+   * @param: void
+   * @return: void
+   */
+  void clearListener();
+
  private:
   std::shared_mutex _mutex;
   T _value;
@@ -442,7 +469,70 @@ class ConfigVar : public ConfigVarBase {
 /**
  * @brief: management configVar class
  */
-class Config {};
+class Config {
+ public:
+  typedef std::unordered_map<std::string, ConfigVarBase::ptr> ConfigVarMap;
+
+  /**
+   * @brief: get/create configuration
+   * @param: [in] const std::string& name (config name)
+   * @param: [in] const T& defaule_value (config default value)
+   * @param: [in] const std::string& description (config description)
+   * @return: corresponding ConfigVar pointer or nullptr
+   * @exception: throw std::invalid_argument
+   */
+  template <typename T>
+  static typename ConfigVar<T>::ptr Lookup(const std::string& name,
+                                           const T& default_value,
+                                           const std::string& description = "");
+
+  /**
+   * @brief: get ConfigVar pointer
+   * @param: [in] const std::string& name (config name)
+   * @return: ConfigVar pointer
+   */
+  template <typename T>
+  static typename ConfigVar<T>::ptr Lookup(const std::string& name);
+
+  /**
+   * @brief: initialize this part use YAML::Node
+   * @param: [in] const YAML::Node& node (use node init)
+   * @return: void
+   */
+  static void LoadFromYaml(const YAML::Node& root);
+
+  /**
+   * @brief: load configuration file in path
+   * @param: [in] const std::string& path (file path)
+   *? @param: [in] bool force = false
+   * @return: void
+   */
+  static void LoadFromConfDir(const std::string& path, bool force = false);
+
+  /**
+   * @brief: find ConfigVar with name
+   * @param: [in] const std::string& name (config name)
+   * @return: ConfigVarBase pointer
+   */
+  static ConfigVarBase::ptr LookupBase(const std::string& name);
+
+  /**
+   * @brief: Walk through all configuration items in the configuration module
+   * @param: [in] std::function<void(ConfigVarBase::ptr)> func
+   * @return: void
+   */
+  static void Visit(std::function<void(ConfigVarBase::ptr)> func);
+
+ private:
+  /**
+   * @brief: return all configuration
+   */
+  static ConfigVarMap& GetData() {
+    static ConfigVarMap s_data;
+    return s_data;
+  }
+};
+
 }  // namespace mengsen_config
 
 #endif  // __MENGSEN_CONFIG_H__

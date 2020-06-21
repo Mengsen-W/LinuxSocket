@@ -40,11 +40,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -finline-limit=1000 -DNODEBUG")
 # binary dir mean executed cmake dir
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
-include_directories(${PROJECT_SOURCE_DIR})
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
-message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_TYPE}})
-
+find_package(Boost REQUIRED)
+find_package(Threads REQUIRED)
 find_library(YAML NAMES yaml-cpp)
 find_library(JSON NAMES jsoncpp )
 
@@ -55,6 +53,12 @@ endif()
 if(JSON)
   message(STATUS "found jsoncpp")
 endif()
+
+include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${Boost_INCLUDES_DIR})
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
+message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_TYPE}})
 
 add_subdirectory(./coroutine)
 add_subdirectory(./log)
