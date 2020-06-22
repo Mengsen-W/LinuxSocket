@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-19 15:34:53
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-19 21:36:57
+ * @Last Modified time: 2020-06-22 21:56:01
  */
 
 #ifndef __MENGSEN_CONFIG_H__
@@ -417,7 +417,7 @@ class ConfigVar : public ConfigVarBase {
    * @brief: get _value
    */
   const T getValue() const {
-    std::lock_shared(std::shared_mutex) lock(_mutex);
+    std::lock_shared<std::shared_mutex> lock(_mutex);
     return _value;
   }
 
