@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-19 15:34:53
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-22 21:56:01
+ * @Last Modified time: 2020-06-22 22:09:19
  */
 
 #ifndef __MENGSEN_CONFIG_H__
@@ -165,10 +165,10 @@ class LexicalCast<std::set<F>, std::string> {
    * @param: const std::set<> val
    * @return: std::set<T>
    */
-  std::string operator()(const std::set<T>& val) {
+  std::string operator()(const std::set<F>& val) {
     YAML::Node node(YAML::NodeType::Sequence);
     for (auto& i : val) {
-      node.push_back(YAML::Load(LexicalCast<T, std::string>()(i)));
+      node.push_back(YAML::Load(LexicalCast<F, std::string>()(i)));
     }
     std::stringstream ss;
     ss << node;
@@ -416,10 +416,7 @@ class ConfigVar : public ConfigVarBase {
   /**
    * @brief: get _value
    */
-  const T getValue() const {
-    std::lock_shared<std::shared_mutex> lock(_mutex);
-    return _value;
-  }
+  const T getValue() const;
 
   /**
    * @brief: set _value

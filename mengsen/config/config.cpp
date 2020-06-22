@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-22 20:58:21
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-22 22:00:01
+ * @Last Modified time: 2020-06-22 22:10:49
  */
 
 #include "config.h"
@@ -21,7 +21,7 @@ ConfigVar<T, FromStr, ToStr>::ConfigVar(const std::string& name,
 template <typename T, class FromStr, class ToStr>
 std::string ConfigVar<T, FromStr, ToStr>::toString() {
   try {
-    std::lock_shared<std::shared_mutex> lock(_mutex);
+    std::shared_lock<std::shared_mutex> lock(_mutex);
     return ToStr()(_value);
   } catch (std::exception& e) {
     LOG_ERROR << "ConfigVar::toString exception " << e.what()
@@ -44,20 +44,23 @@ bool ConfigVar<T, FromStr, ToStr>::fromString(const std::string& val) {
 }
 
 template <typename T, class FromStr, class ToStr>
-const T ConfigVar<T, FromStr, ToStr>::getValue() const {}
+const T ConfigVar<T, FromStr, ToStr>::getValue() const {
+  std::shared_lock<std::shared_mutex> lock(_mutex);
+  return _value;
+}
 
 template <typename T, class FromStr, class ToStr>
 void ConfigVar<T, FromStr, ToStr>::setValue(const T& val) {
   {
-    std::lock_shared<std::shared_mutex> lock(_mutex);
-    if (v == _val) {
+    std::shared_lock<std::shared_mutex> lock(_mutex);
+    if (val == _value) {
       return;
     }
     for (auto& i : _func) {
-      i.second(_val, v);
+      i.second(_value, val);
     }
   }
   std::unique_lock<std::shared_mutex> lock(_mutex);
-  _val = val;
+  _value = val;
 }
 }  // namespace mengsen_config
