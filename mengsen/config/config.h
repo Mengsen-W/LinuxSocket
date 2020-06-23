@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-19 15:34:53
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-22 22:09:19
+ * @Last Modified time: 2020-06-23 21:57:54
  */
 
 #ifndef __MENGSEN_CONFIG_H__
@@ -367,7 +367,7 @@ class ConfigVarBase {
   /**
    * @brief: return configuration paramter type
    */
-  virtual std::string getType() const = 0;
+  virtual std::string getTypeName() const = 0;
 
   // for subclass visibility
  protected:
@@ -428,7 +428,7 @@ class ConfigVar : public ConfigVarBase {
   /**
    * @brief: get value typeinfo
    */
-  std::string getType() const override;
+  std::string getTypeName() const override;
 
   /**
    * @brief: add call back function
