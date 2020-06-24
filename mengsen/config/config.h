@@ -3,7 +3,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-19 15:34:53
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-23 21:57:54
+ * @Last Modified time: 2020-06-23 22:52:46
  */
 
 #ifndef __MENGSEN_CONFIG_H__
@@ -15,8 +15,9 @@
 #include <iostream>                // for stringstream
 #include <memory>                  // for smart pointer
 #include <shared_mutex>            // for read-write lock
-#include <unordered_map>           // for LexicalCast
-#include <unordered_set>           // for LexicalCast
+#include <string>
+#include <unordered_map>  // for LexicalCast
+#include <unordered_set>  // for LexicalCast
 
 namespace {
 
@@ -521,13 +522,8 @@ class Config {
   static void Visit(std::function<void(ConfigVarBase::ptr)> func);
 
  private:
-  /**
-   * @brief: return all configuration
-   */
-  static ConfigVarMap& GetData() {
-    static ConfigVarMap s_data;
-    return s_data;
-  }
+  static std::shared_mutex _mutex;
+  static ConfigVarMap _data;
 };
 
 }  // namespace mengsen_config
