@@ -502,7 +502,7 @@ class Config {
   /**
    * @brief: load configuration file in path
    * @param: [in] const std::string& path (file path)
-   *? @param: [in] bool force = false
+   * @param: [in] bool force = false
    * @return: void
    */
   static void LoadFromConfDir(const std::string& path, bool force = false);

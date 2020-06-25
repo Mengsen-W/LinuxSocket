@@ -2,13 +2,17 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-22 20:58:21
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-23 22:59:28
+ * @Last Modified time: 2020-06-25 19:23:20
  */
 
 #include "config.h"
 
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "../environment/env.h"
 #include "../log/log.h"
-#include "../util/util.h"
+#include "../utility/utility.h"
 
 namespace mengsen_config {
 
@@ -148,7 +152,7 @@ typename ConfigVar<T>::ptr Config::Lookup(const std::string& name) {
 }
 
 ConfigVarBase::ptr Config::LookupBase(const std::string& name) {
-  // std::shared_lock<std::shared_mutex> lock(_mutex);
+  std::shared_lock<std::shared_mutex> lock(_mutex);
   auto it = _data.find(name);
   return it == _data.end() ? nullptr : it->second;
 }
@@ -163,7 +167,7 @@ static void ListAllMember(
     std::list<std::pair<std::string, const YAML::Node> >& output) {
   if (prefix.find_first_not_of("abcdefghikjlmnopqrstuvwxyz._012345678") !=
       std::string::npos) {
-    LOG_ERROR << "Config invalid name: " << prefix << " : " /* <<  node */;
+    LOG_ERROR << "Config invalid name: " << prefix << " : " << node;
     return;
   }
   output.push_back(std::make_pair(prefix, node));
@@ -201,36 +205,36 @@ void Config::LoadFromYaml(const YAML::Node& root) {
   }
 }
 
-// static std::map<std::string, uint64_t> s_file2modifytime;
-// static sylar::Mutex s_mutex;
+static std::map<std::string, uint64_t> s_file2modifytime;
+static std::mutex m_mutex;
 
-// void Config::LoadFromConfDir(const std::string& path, bool force) {
-//   std::string absoulte_path =
-//       sylar::EnvMgr::GetInstance()->getAbsolutePath(path);
-//   std::vector<std::string> files;
-//   FSUtil::ListAllFile(files, absoulte_path, ".yml");
-//   for (auto& i : files) {
-//     {
-//       struct stat st;
-//       lstat(i.c_str(), &st);
-//       sylar::Mutex::Lock lock(s_mutex);
-//       if (!force && s_file2modifytime[i] == (uint64_t)st.st_mtime) {
-//         continue;
-//       }
-//       s_file2modifytime[i] = st.st_mtime;
-//     }
-//     try {
-//       YAML::Node root = YAML::LoadFile(i);
-//       LoadFromYaml(root);
-//       SYLAR_LOG_INFO(g_logger) << "LoadConfFile file=" << i << " ok";
-//     } catch (...) {
-//       SYLAR_LOG_ERROR(g_logger) << "LoadConfFile file=" << i << " failed";
-//     }
-//   }
-// }
+void Config::LoadFromConfDir(const std::string& path, bool force) {
+  std::string absoult_path =
+      mengsen::EnvMgr::GetInstance()->getAbsolutePath(path);
+  std::vector<std::string> files;
+  FSUtil::ListAllFile(files, absoult_path, ".yml");
+  for (auto& i : files) {
+    {
+      struct stat st;
+      lstat(i.c_str(), &st);
+      std::lock_guard<std::mutex> lock(m_mutex);
+      if (!force && s_file2modifytime[i] == (uint64_t)st.st_mtime) {
+        continue;
+      }
+      s_file2modifytime[i] = st.st_mtime;
+    }
+    try {
+      YAML::Node root = YAML::LoadFile(i);
+      LoadFromYaml(root);
+      LOG_INFO << "LoadConfFile file=" << i << " ok";
+    } catch (...) {
+      LOG_ERROR << "LoadConfFile file=" << i << " failed";
+    }
+  }
+}
 
 void Config::Visit(std::function<void(ConfigVarBase::ptr)> cb) {
-  // std::shared_lock<std::shared_mutex> lock(_mutex);
+  std::shared_lock<std::shared_mutex> lock(_mutex);
   ConfigVarMap& m = _data;
   for (auto it = m.begin(); it != m.end(); ++it) {
     cb(it->second);
