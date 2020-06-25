@@ -2,8 +2,10 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-04 21:38:59
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-13 18:48:53
+ * @Last Modified time: 2020-06-25 19:09:14
  */
+
+#include <yaml-cpp/yaml.h>
 
 #include <cstdint>
 #include <iostream>  // for ostream
@@ -53,6 +55,7 @@ class LogLine {
   LogLine &operator<<(uint64_t arg);
   LogLine &operator<<(int64_t arg);
   LogLine &operator<<(double arg);
+  LogLine &operator<<(const YAML::Node &node);
 
   template <size_t N>
   LogLine &operator<<(const char (&arg)[]) {

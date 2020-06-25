@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-06-05 21:07:13
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-06-13 20:53:35
+ * @Last Modified time: 2020-06-25 19:12:44
  */
 
 #include "log.h"
@@ -423,6 +423,10 @@ LogLine& LogLine::operator<<(double arg) {
 LogLine& LogLine::operator<<(char arg) {
   encode<char>(arg, TupleIndex<char, SupportedTypes>::value);
   return *this;
+}
+
+LogLine& LogLine::operator<<(const YAML::Node& node) {
+  return operator<<(node.as<std::string>());
 }
 
 /**
