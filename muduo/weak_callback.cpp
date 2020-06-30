@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-09 18:50:22
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-10 19:55:04
+ * @Last Modified time: 2020-06-30 12:15:21
  *
  */
 
@@ -44,8 +44,8 @@ class StockFactory : public std::enable_shared_from_this<StockFactory> {
   StockFactory(const StockFactory& other) = delete;             //!
   StockFactory& operator=(const StockFactory& other) = delete;  //!
 
-  std::shared_ptr<Stock> get() const
-      noexcept = delete;  // const value can not invoke
+  std::shared_ptr<Stock> get() const noexcept =
+      delete;  // const value can not invoke
 
   /**
    * map 中使用 weak_ptr 的作用是防止重复引用
