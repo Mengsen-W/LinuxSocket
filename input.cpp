@@ -1,29 +1,23 @@
+#include <algorithm>
 #include <iostream>
-#include <vector>
 #include <sstream>
 #include <string>
-#include <algorithm>
+#include <vector>
 
 using namespace std;
 
-int stringToInteger(string input) {
-  return stoi(input);
-
-}
+int stringToInteger(string input) { return stoi(input); }
 
 void trimLeftTrailingSpaces(string &input) {
-  input.erase(input.begin(), find_if(input.begin(), input.end(), [](int ch) {
-                                     return !isspace(ch);
-
-                                     }));
-
+  input.erase(input.begin(), find_if(input.begin(), input.end(),
+                                     [](int ch) { return !isspace(ch); }));
 }
 
 void trimRightTrailingSpaces(string &input) {
-  input.erase(find_if(input.rbegin(), input.rend(), [](int ch) {
-                      return !isspace(ch);
-                      }).base(), input.end());
-
+  input.erase(
+      find_if(input.rbegin(), input.rend(), [](int ch) { return !isspace(ch); })
+          .base(),
+      input.end());
 }
 
 vector<int> stringToIntegerVector(string input) {
@@ -37,10 +31,8 @@ vector<int> stringToIntegerVector(string input) {
   char delim = ',';
   while (getline(ss, item, delim)) {
     output.push_back(stoi(item));
-
   }
   return output;
-
 }
 
 int main() {
@@ -54,8 +46,6 @@ int main() {
 
     // string out = to_string(ret);
     // cout << out << endl;
-
   }
   return 0;
-
 }
