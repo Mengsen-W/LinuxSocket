@@ -1,13 +1,14 @@
 /*
  * @Author: Mengsen.Wang
  * @Date: 2020-07-03 21:28:50
- * @Last Modified by:   Mengsen.Wang
- * @Last Modified time: 2020-07-03 21:28:50
+ * @Last Modified by: Mengsen.Wang
+ * @Last Modified time: 2020-07-04 21:43:07
  */
 
 #include <json/json.h>
 
 #include <algorithm>
+#include <cassert>
 #include <iostream>
 #include <queue>
 #include <regex>
@@ -107,27 +108,70 @@ void stringTo2DIntegerVector() {
     std::cout << std::endl;
   }
 
-  // // 用reader解析str，并存入root
-  // if (reader.parse(strJsonContent, root)) {
-  //   // 获取非数组内容
-  //   strType = root["type"].asString();
-  //   cout << "type is: " << strType << endl;
+  // 用reader解析str，并存入root
+  if (reader.parse(strJsonContent, root)) {
+    // 获取非数组内容
+    strType = root["type"].asString();
+    cout << "type is: " << strType << endl;
 
-  //   // 获取数组内容
-  //   if (root["list"].isArray()) {
-  //     int nArraySize = root["list"].size();
-  //     for (int i = 0; i < nArraySize; i++) {
-  //       nRoleDd = root["list"][i]["role_id"].asInt();
-  //       strOccupation = root["list"][i]["occupation"].asString();
-  //       strCamp = root["list"][i]["camp"].asString();
+    // 获取数组内容
+    if (root["list"].isArray()) {
+      int nArraySize = root["list"].size();
+      for (int i = 0; i < nArraySize; i++) {
+        nRoleDd = root["list"][i]["role_id"].asInt();
+        strOccupation = root["list"][i]["occupation"].asString();
+        strCamp = root["list"][i]["camp"].asString();
 
-  //       cout << "role_id is: " << nRoleDd << endl;
-  //       cout << "occupation is: " << strOccupation << endl;
-  //       cout << "camp is: " << strCamp << endl;
-  //     }
-  //   }
-  // }
+        cout << "role_id is: " << nRoleDd << endl;
+        cout << "occupation is: " << strOccupation << endl;
+        cout << "camp is: " << strCamp << endl;
+      }
+    }
+  }
   return;
+}
+
+string stringToString(string input) {
+  assert(input.size() >= 2);
+  string result;
+  for (size_t i = 1; i < input.size() - 1; i++) {
+    char currentChar = input[i];
+    if (input[i] == '\\') {
+      char nextChar = input[i + 1];
+      switch (nextChar) {
+        case '\"':
+          result.push_back('\"');
+          break;
+        case '/':
+          result.push_back('/');
+          break;
+        case '\\':
+          result.push_back('\\');
+          break;
+        case 'b':
+          result.push_back('\b');
+          break;
+        case 'f':
+          result.push_back('\f');
+          break;
+        case 'r':
+          result.push_back('\r');
+          break;
+        case 'n':
+          result.push_back('\n');
+          break;
+        case 't':
+          result.push_back('\t');
+          break;
+        default:
+          break;
+      }
+      i++;
+    } else {
+      result.push_back(currentChar);
+    }
+  }
+  return result;
 }
 
 string treeNodeToString(TreeNode *root) {
